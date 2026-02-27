@@ -23,7 +23,7 @@ def rag_templates_optimization(
     chat_model_token: Optional[str] = None,
     embedding_model_url: Optional[str] = None,
     embedding_model_token: Optional[str] = None,
-    vector_database_id: Optional[str] = None,
+    llama_stack_vector_database_id: Optional[str] = None,
     optimization_settings: Optional[dict] = None,
 ):
     """RAG Templates Optimization component.
@@ -42,7 +42,7 @@ def rag_templates_optimization(
         chat_model_token: Optional API token for the chat model endpoint. Omit if deployment has no auth.
         embedding_model_url: Inference endpoint URL for the embedding model. Required for in-memory scenario.
         embedding_model_token: Optional API token for the embedding model endpoint. Omit if no auth.
-        vector_database_id: Identifier of the vector store (e.g. "chroma", "ls_milvus"). Optional.
+        llama_stack_vector_database_id: Identifier of the vector store (e.g. "chroma", "ls_milvus"). Optional.
         optimization_settings: Additional settings; may include "metric" (str) for optimization.
             Supported: "faithfulness", "answer_correctness", "context_correctness". Defaults to
             "faithfulness" if omitted.
@@ -201,10 +201,10 @@ def rag_templates_optimization(
     benchmark_data = pd.read_json(Path(test_data))
 
     # ai4rag does not accept None for vector_store_type; use a supported default when omitted
-    if not vector_database_id and in_memory_vector_store_scenario:
-        vector_database_id = "chroma"
-    elif not vector_database_id:
-        vector_database_id = "ls_milvus"
+    if not llama_stack_vector_database_id and in_memory_vector_store_scenario:
+        llama_stack_vector_database_id = "chroma"
+    elif not llama_stack_vector_database_id:
+        llama_stack_vector_database_id = "ls_milvus"
 
     rag_exp = AI4RAGExperiment(
         client=None if in_memory_vector_store_scenario else client.llama_stack,
@@ -212,7 +212,7 @@ def rag_templates_optimization(
         optimizer_settings=optimizer_settings,
         search_space=search_space,
         benchmark_data=benchmark_data,
-        vector_store_type=vector_database_id,
+        vector_store_type=llama_stack_vector_database_id,
         documents=documents,
         optimization_metric=optimization_metric,
         # TODO some necessary kwargs (if any at all)
