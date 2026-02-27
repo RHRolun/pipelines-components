@@ -126,7 +126,7 @@ def search_space_preparation(
 
         elif path.is_file():
             with path.open("r", encoding="utf-8") as doc:
-                documents.append(Document(page_content=doc.read(), metadata={"document.id": path.stem}))
+                documents.append(Document(page_content=doc.read(), metadata={"document_id": path.stem}))
 
         return documents
 
