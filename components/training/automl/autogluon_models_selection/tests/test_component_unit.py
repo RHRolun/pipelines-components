@@ -1,5 +1,7 @@
 """Tests for the autogluon_models_selection component."""
 
+# Assisted-by: Cursor
+
 import sys
 from pathlib import Path
 from unittest import mock

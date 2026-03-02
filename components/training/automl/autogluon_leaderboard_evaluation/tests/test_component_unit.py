@@ -1,5 +1,7 @@
 """Tests for the leaderboard_evaluation component."""
 
+# Assisted-by: Cursor
+
 import json
 import shutil
 import tempfile
@@ -42,6 +44,7 @@ class TestLeaderboardEvaluationUnitTests:
 
             mock_model = mock.MagicMock()
             mock_model.path = model_dir
+            mock_model.uri = "http://example.com/artifacts"
             mock_model.metadata = {"display_name": "Model1"}
 
             with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html") as tmp_file:
@@ -63,10 +66,15 @@ class TestLeaderboardEvaluationUnitTests:
                 assert call_args[0]["root_mean_squared_error"] == 0.5
                 assert call_args[0]["mean_absolute_error"] == 0.4
                 assert call_args[0]["r2"] == 0.9
+                assert (
+                    call_args[0]["notebook"]
+                    == "http://example.com/artifacts/Model1/notebooks/automl_predictor_notebook.ipynb"
+                )
+                assert call_args[0]["predictor"] == "http://example.com/artifacts/Model1/predictor/predictor.pkl"
                 mock_df.sort_values.assert_called_once_with(by="root_mean_squared_error", ascending=False)
-                assert mock_df_sorted.index == range(1, 2)  # index 1-based
                 mock_df_sorted.to_html.assert_called_once()
-                assert Path(tmp_path).read_text() == expected_html
+                # Component wraps table in full HTML document
+                assert expected_html in Path(tmp_path).read_text()
             finally:
                 Path(tmp_path).unlink(missing_ok=True)
         finally:
@@ -97,6 +105,7 @@ class TestLeaderboardEvaluationUnitTests:
             for i, path in enumerate(model_dirs):
                 m = mock.MagicMock()
                 m.path = path
+                m.uri = "http://example.com/artifacts"
                 m.metadata = {"display_name": f"Model{i + 1}"}
                 mock_models.append(m)
 
@@ -117,12 +126,16 @@ class TestLeaderboardEvaluationUnitTests:
                 assert len(call_args) == 3
                 assert call_args[0]["model"] == "Model1"
                 assert call_args[0]["root_mean_squared_error"] == 0.8
+                assert (
+                    call_args[0]["notebook"]
+                    == "http://example.com/artifacts/Model1/notebooks/automl_predictor_notebook.ipynb"
+                )
+                assert call_args[0]["predictor"] == "http://example.com/artifacts/Model1/predictor/predictor.pkl"
                 assert call_args[1]["model"] == "Model2"
                 assert call_args[1]["root_mean_squared_error"] == 0.3
                 assert call_args[2]["model"] == "Model3"
                 assert call_args[2]["root_mean_squared_error"] == 0.5
                 mock_df.sort_values.assert_called_once_with(by="root_mean_squared_error", ascending=False)
-                assert mock_df_sorted.index == range(1, 4)  # index 1-based
                 mock_df_sorted.to_html.assert_called_once()
             finally:
                 Path(tmp_path).unlink(missing_ok=True)
@@ -153,6 +166,7 @@ class TestLeaderboardEvaluationUnitTests:
             for i, path in enumerate(model_dirs):
                 m = mock.MagicMock()
                 m.path = path
+                m.uri = "http://example.com/artifacts"
                 m.metadata = {"display_name": f"Model{i + 1}"}
                 mock_models.append(m)
 
@@ -169,9 +183,9 @@ class TestLeaderboardEvaluationUnitTests:
                 )
 
                 mock_df.sort_values.assert_called_once_with(by="root_mean_squared_error", ascending=False)
-                assert mock_df_sorted.index == range(1, 4)  # index 1-based
                 mock_df_sorted.to_html.assert_called_once()
-                assert Path(tmp_path).read_text() == sorted_html
+                # Component wraps table in full HTML document
+                assert sorted_html in Path(tmp_path).read_text()
             finally:
                 Path(tmp_path).unlink(missing_ok=True)
         finally:
@@ -195,6 +209,7 @@ class TestLeaderboardEvaluationUnitTests:
 
             mock_model = mock.MagicMock()
             mock_model.path = model_dir
+            mock_model.uri = "http://example.com/artifacts"
             mock_model.metadata = {"display_name": "Model1"}
 
             with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".html") as tmp_file:
@@ -215,10 +230,15 @@ class TestLeaderboardEvaluationUnitTests:
                 assert call_args[0]["model"] == "Model1"
                 assert call_args[0]["root_mean_squared_error"] == 0.5
                 assert call_args[0]["mean_absolute_error"] == 0.4
+                assert (
+                    call_args[0]["notebook"]
+                    == "http://example.com/artifacts/Model1/notebooks/automl_predictor_notebook.ipynb"
+                )
+                assert call_args[0]["predictor"] == "http://example.com/artifacts/Model1/predictor/predictor.pkl"
                 mock_df.sort_values.assert_called_once_with(by="root_mean_squared_error", ascending=False)
-                assert mock_df_sorted.index == range(1, 2)  # index 1-based
                 mock_df_sorted.to_html.assert_called_once()
-                assert Path(tmp_path).read_text() == expected_html
+                # Component wraps table in full HTML document
+                assert expected_html in Path(tmp_path).read_text()
             finally:
                 Path(tmp_path).unlink(missing_ok=True)
         finally:

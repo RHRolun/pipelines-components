@@ -1,5 +1,7 @@
 """Local runner tests for the tabular_train_test_split component."""
 
+# Assisted-by: Cursor
+
 import pytest
 
 from ..component import tabular_train_test_split

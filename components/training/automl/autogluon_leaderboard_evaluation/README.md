@@ -12,7 +12,9 @@ ranking the models by their performance metrics. Each model artifact is expected
 component). The component reads these metrics and compiles them into a sorted leaderboard table.
 
 The leaderboard is sorted by the specified evaluation metric in descending order, making it easy to identify the
-best-performing models. The output is written as HTML that can be used for reporting and model selection decisions.
+best-performing models. The table shows model name (display name only), metric columns, and at the end two columns
+with URIs as plain text: **notebook** (link to the predictor notebook) and **predictor** (link to the model artifact).
+The output is written as HTML that can be used for reporting and model selection decisions.
 
 ## Inputs 📥
 
