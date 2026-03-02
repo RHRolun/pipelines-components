@@ -21,7 +21,9 @@ def documents_sampling(
         input_data_bucket_name: S3 (or compatible) bucket containing input data.
         input_data_path: Path to folder with input documents within the bucket.
         test_data: Optional input artifact containing test data for sampling.
-        sampling_config: Optional sampling configuration dictionary.
+        sampling_config: Optional sampling configuration. May include: max_size_gigabytes (int, default 1);
+            target_count (int) for benchmarking: sample until this many documents (duplicates allowed);
+            target_size_bytes (int) for benchmarking: sample until total size reaches this (duplicates allowed).
         sampled_documents: Output artifact containing the sampled documents descriptor yaml file.
 
     Environment variables (required when run with pipeline secret injection):
@@ -31,21 +33,23 @@ def documents_sampling(
     import logging
     import os
     import sys
+    from itertools import cycle
+    from pathlib import Path
 
     import boto3
     import yaml
 
     SAMPLED_DOCUMENTS_DESCRIPTOR_FILENAME = "sampled_documents_descriptor.yaml"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
-    MAX_SIZE_BYTES = 1024**3  # 1 GB
+
+    if sampling_config is None:
+        sampling_config = {}
+    MAX_SIZE_BYTES = 1024**3 * int(sampling_config.get("max_size_gigabytes", 1))
 
     logger = logging.getLogger("Document Loader component logger")
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
-
-    if sampling_config is None:
-        sampling_config = {}
 
     def get_test_data_docs_names() -> list[str]:
         if test_data is None:
@@ -91,24 +95,62 @@ def documents_sampling(
         test_data_docs_names = get_test_data_docs_names()
         supported_files.sort(key=lambda c: c["Key"] not in test_data_docs_names)
 
-        total_size = 0
-        selected = []
-        for file in supported_files:
-            if total_size + file["Size"] > MAX_SIZE_BYTES:
-                continue
-            selected.append(file)
-            total_size += file["Size"]
+        target_count = sampling_config.get("target_count")
+        target_size_bytes = sampling_config.get("target_size_bytes")
 
-        documents = []
-        for file_info in selected:
-            key = file_info["Key"]
-            size_bytes = file_info["Size"]
-            documents.append(
-                {
-                    "key": key,
-                    "size_bytes": size_bytes,
-                }
-            )
+        if target_count is not None or target_size_bytes is not None:
+            selected = []
+            total_size = 0
+            target_count_val = target_count if target_count is not None else float("inf")
+            target_size_val = target_size_bytes if target_size_bytes is not None else float("inf")
+            cycled = cycle(supported_files)
+            idx = 0
+            consecutive_skips = 0
+            while consecutive_skips < len(supported_files):
+                if len(selected) >= target_count_val or total_size >= target_size_val:
+                    break
+                file_info = next(cycled)
+                if total_size + file_info["Size"] > MAX_SIZE_BYTES:
+                    consecutive_skips += 1
+                    continue
+                consecutive_skips = 0
+                selected.append((file_info, idx))
+                total_size += file_info["Size"]
+                idx += 1
+
+            documents = []
+            for file_info, idx in selected:
+                key = file_info["Key"]
+                size_bytes = file_info["Size"]
+                stem = Path(key).stem
+                suffix = Path(key).suffix
+                output_basename = f"{stem}_{idx}{suffix}"
+                documents.append(
+                    {
+                        "key": key,
+                        "size_bytes": size_bytes,
+                        "output_basename": output_basename,
+                    }
+                )
+        else:
+            total_size = 0
+            selected = []
+            for file in supported_files:
+                if total_size + file["Size"] > MAX_SIZE_BYTES:
+                    continue
+                selected.append(file)
+                total_size += file["Size"]
+
+            documents = []
+            for file_info in selected:
+                key = file_info["Key"]
+                size_bytes = file_info["Size"]
+                documents.append(
+                    {
+                        "key": key,
+                        "size_bytes": size_bytes,
+                    }
+                )
 
         descriptor = {
             "bucket": input_data_bucket_name,

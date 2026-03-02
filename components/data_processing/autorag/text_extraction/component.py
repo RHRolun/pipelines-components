@@ -19,10 +19,12 @@ def text_extraction(
             sampled_documents_descriptor.yaml with bucket, prefix, and documents list.
         extracted_text: Output artifact where the extracted text content will be stored.
     """
+    import json
     import logging
     import os
     import sys
     import tempfile
+    import time
     from concurrent.futures import ThreadPoolExecutor
     from functools import partial
     from pathlib import Path
@@ -78,7 +80,8 @@ def text_extraction(
 
     def download_document(doc: dict) -> bool:
         key = doc["key"]
-        local_path = download_path / key
+        local_name = doc.get("output_basename") or key
+        local_path = download_path / local_name
         local_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             logger.info("Downloading %s", key)
@@ -108,28 +111,49 @@ def text_extraction(
             logger.error("Failed to process %s: %s", file_path_str, e)
             return False
 
+    EXTRACTION_METRICS_FILENAME = "extraction_metrics.json"
+
     with tempfile.TemporaryDirectory() as download_dir:
         download_path = Path(download_dir)
-        download_workers = min(DOWNLOAD_MAX_WORKERS, len(documents)) if documents else 1
-        with ThreadPoolExecutor(max_workers=download_workers) as executor:
-            list(executor.map(download_document, documents))
-
         output_dir = Path(extracted_text.path)
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        download_workers = min(DOWNLOAD_MAX_WORKERS, len(documents)) if documents else 1
+        download_start = time.perf_counter()
+        with ThreadPoolExecutor(max_workers=download_workers) as executor:
+            list(executor.map(download_document, documents))
+        download_seconds = time.perf_counter() - download_start
+        logger.info("Documents download completed in %.2f seconds (%d documents)", download_seconds, len(documents))
 
         files_to_process = [
             f for f in download_path.rglob("*") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
         ]
 
+        # Phase 2: text extraction (timed)
         logger.info("Starting text extraction for %d documents.", len(files_to_process))
-
         process_workers = min(os.cpu_count() or 1, len(files_to_process)) if files_to_process else 1
         worker_fn = partial(process_document, output_dir_str=str(output_dir))
+        extraction_start = time.perf_counter()
         with ThreadPoolExecutor(max_workers=process_workers) as executor:
             results = list(executor.map(worker_fn, [str(f) for f in files_to_process]))
+        extraction_seconds = time.perf_counter() - extraction_start
+        logger.info("Text extraction completed in %.2f seconds", extraction_seconds)
 
     processed_count = sum(1 for r in results if r)
     error_count = len(results) - processed_count
+
+    metrics = {
+        "download_seconds": round(download_seconds, 3),
+        "extraction_seconds": round(extraction_seconds, 3),
+        "total_seconds": round(download_seconds + extraction_seconds, 3),
+        "document_count": len(documents),
+        "processed_count": processed_count,
+        "error_count": error_count,
+    }
+    metrics_path = output_dir / EXTRACTION_METRICS_FILENAME
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+    logger.info("Metrics saved to %s: %s", metrics_path, metrics)
 
     summary = f"Text extraction completed. Total processed: {processed_count}, Errors: {error_count}."
     logger.info(summary)
