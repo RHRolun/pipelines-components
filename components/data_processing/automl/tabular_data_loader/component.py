@@ -20,6 +20,11 @@ def automl_data_loader(
     The component reads data in chunks to efficiently handle large files without
     loading the entire dataset into memory at once.
 
+    The Tabular Data Loader is typically the first step in the AutoML pipeline.
+    It streams CSV data from an S3 bucket, optionally samples it using
+    one of the supported strategies, and writes the result to an output dataset artifact.
+    Authentication uses AWS-style credentials provided via environment variables (e.g. from a Kubernetes secret).
+
     Args:
         file_key: S3 object key of the CSV file.
         bucket_name: S3 bucket name containing the file.

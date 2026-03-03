@@ -4,7 +4,13 @@
 
 ## Overview 🧾
 
-Splits a tabular dataset into train and test sets and writes them to output artifacts.
+Splits a tabular (CSV) dataset into train and test sets for AutoML workflows.
+
+The Train Test Split component takes a single CSV dataset and splits it into training and test sets using scikit-learn's
+`train_test_split`. For **regression** tasks the split is random; for **binary** and **multiclass** tasks the split is
+**stratified** by the label column by default, so that class proportions are preserved in both splits. The component
+writes the train and test CSVs to the output artifacts and returns a sample row (from the test set) and the split
+configuration.
 
 ## Inputs 📥
 

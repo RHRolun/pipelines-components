@@ -11,14 +11,18 @@ identified by model_name, on the full training data. By default AutoGluon refit_
 validation data; the test_dataset is used for evaluation and for writing metrics. The refitted model is saved with the
 suffix "_FULL" appended to model_name.
 
-The component clones the predictor to model_artifact.path / model_name_FULL / predictor, keeps only the specified model
-and its refitted version, sets the refitted model as best, and saves space by removing other models. Evaluation metrics,
-feature importance, and (for classification) confusion matrix are written under model_artifact.path / model_name_FULL /
-metrics. A Jupyter notebook (automl_predictor_notebook.ipynb) is written under model_artifact.path / model_name_FULL /
-notebooks for inference and exploration; pipeline_name, run_id, and sample_row are used to fill in run context and
-example input (the label column is stripped from sample_row in the notebook). Artifact metadata includes display_name,
-context (data_config, task_type, label_column, model_config, location, metrics), and context.location.notebook.
-Supported problem types are regression, binary, and multiclass; any other type raises ValueError.
+Artifacts are written under model_artifact.path in a directory named <model_name>_FULL (e.g. LightGBM_BAG_L1_FULL). The
+layout is:
+
+- model_artifact.path / <model_name>_FULL / predictor / TabularPredictor (predictor.pkl inside); clone with only the
+refitted model. - model_artifact.path / <model_name>_FULL / metrics / metrics.json (evaluation results; leaderboard
+component reads this via display_name/metrics/metrics.json). - model_artifact.path / <model_name>_FULL / metrics /
+feature_importance.json - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json (classification
+only). - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
+
+Artifact metadata: display_name (<model_name>_FULL), context (data_config, task_type, label_column, model_config,
+location, metrics), and context.location.notebook (path to the notebook). Supported problem types: regression, binary,
+multiclass; any other raises ValueError.
 
 This component is typically used in a two-stage training pipeline where models are first trained on sampled data for
 exploration, then the best candidates are refitted on the full dataset for optimal performance.
@@ -36,7 +40,7 @@ exploration, then the best candidates are refitted on the full dataset for optim
 | `pipeline_name` | `str` | `None` | Pipeline run name; last hyphen-separated segment used in the generated notebook. |
 | `run_id` | `str` | `None` | Pipeline run ID (used in the generated notebook). |
 | `sample_row` | `str` | `None` | JSON list of row objects for example input in the notebook; label column is stripped. |
-| `model_artifact` | `dsl.Output[dsl.Model]` | `None` | Output Model; refitted predictor, metrics, and notebook under model_artifact.path/model_name_FULL. |
+| `model_artifact` | `dsl.Output[dsl.Model]` | `None` | Output Model; artifacts under model_artifact.path/<model_name>_FULL (predictor/, metrics/, notebooks/). |
 
 ## Outputs 📤
 
