@@ -23,7 +23,7 @@ def rag_templates_optimization(
     chat_model_token: Optional[str] = None,
     embedding_model_url: Optional[str] = None,
     embedding_model_token: Optional[str] = None,
-    vector_database_id: Optional[str] = None,
+    llama_stack_vector_database_id: Optional[str] = None,
     optimization_settings: Optional[dict] = None,
 ):
     """RAG Templates Optimization component.
@@ -31,21 +31,31 @@ def rag_templates_optimization(
     Carries out the iterative RAG optimization process.
 
     Args:
-        extracted_text: Path to a folder containing extracted texts from input documents.
-        test_data: Path to test data used for evaluating RAG pattern quality.
-        search_space_prep_report: Path to a .yml file containing the report from the search space
-            preparation phase.
-        rag_patterns: Output artifact for the folder of generated RAG patterns.
-        autorag_run_artifact: Output artifact for run log and experiment status (TODO).
+        extracted_text: A path pointing to a folder containg extracted texts from input documents.
+
+        test_data: A path pointing to test data used for evaluating RAG pattern quality.
+
+        search_space_prep_report: A path pointing to a .yml file containig short
+            report on the experiment's first phase (search space preparation).
+
+        rag_patterns: kfp-enforced argument specifying an output artifact. Provided by kfp backend automatically.
+
+        autorag_run_artifact: kfp-enforced argument specifying an output artifact. Provided by kfp backend atomatically.
+
         chat_model_url: Inference endpoint URL for the chat/generation model (OpenAI-compatible).
             Required for in-memory scenario.
+
         chat_model_token: Optional API token for the chat model endpoint. Omit if deployment has no auth.
+
         embedding_model_url: Inference endpoint URL for the embedding model. Required for in-memory scenario.
+
         embedding_model_token: Optional API token for the embedding model endpoint. Omit if no auth.
-        vector_database_id: Identifier of the vector store (e.g. "chroma", "ls_milvus"). Optional.
-        optimization_settings: Additional settings; may include "metric" (str) for optimization.
-            Supported: "faithfulness", "answer_correctness", "context_correctness". Defaults to
-            "faithfulness" if omitted.
+
+        vector_database: An identificator of the vector store used in the experiment.
+
+        llama_stack_vector_database_id: Vector database identifier as registered in llama-stack.
+
+        optimization_settings: Additional settings customising the experiment.
 
     Returns:
         rag_patterns: Folder containing all generated RAG patterns (each subdir: pattern.json,
@@ -84,6 +94,7 @@ def rag_templates_optimization(
     from llama_stack_client import LlamaStackClient
     from openai import OpenAI
 
+    MAX_NUMBER_OF_RAG_PATTERNS = 8
     METRIC = "faithfulness"
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
 
@@ -120,21 +131,23 @@ def rag_templates_optimization(
 
         return documents
 
-        # Llama-stack secret must provide: LLAMA_STACK_CLIENT_API_KEY, LLAMA_STACK_CLIENT_BASE_URL
-
     llama_stack_client_base_url = os.environ.get("LLAMA_STACK_CLIENT_BASE_URL", None)
     llama_stack_client_api_key = os.environ.get("LLAMA_STACK_CLIENT_API_KEY", None)
 
     in_memory_vector_store_scenario = False
-
     Client = namedtuple("Client", ["llama_stack", "generation_model", "embedding_model"], defaults=[None, None, None])
 
     if llama_stack_client_base_url and llama_stack_client_api_key:
         client = Client(llama_stack=LlamaStackClient())
     else:
+        if not all((chat_model_url, chat_model_token, embedding_model_url, embedding_model_token)):
+            raise ValueError(
+                "All of (`chat_model_url`, `chat_model_token`, `embedding_model_url`, `embedding_model_token`) "
+                "have to be defined when running AutoRAG experiment using an in-memory vector store."
+            )
         client = Client(
-            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url + "/v1"),
-            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url + "/v1"),
+            generation_model=OpenAI(api_key=chat_model_token, base_url=f"{chat_model_url}/v1"),
+            embedding_model=OpenAI(api_key=embedding_model_token, base_url=f"{embedding_model_url}/v1"),
         )
         in_memory_vector_store_scenario = True
 
@@ -168,11 +181,16 @@ def rag_templates_optimization(
                     Parameter(
                         "embedding_model",
                         "C",
-                        values=[OpenAIEmbeddingModel(client=client.embedding_model, model_id=em) for em in values],
+                        values=[
+                            OpenAIEmbeddingModel(
+                                client=client.embedding_model,
+                                model_id=em,
+                                params={"embedding_dimension": 768, "context_length": 512},
+                            )
+                            for em in values
+                        ],
                     )
                 )
-            else:
-                params.append(Parameter(param, "C", values=values))
     else:
         for param, values in search_space.items():
             if param == "foundation_model":
@@ -188,7 +206,14 @@ def rag_templates_optimization(
                     Parameter(
                         "embedding_model",
                         "C",
-                        values=[LSEmbeddingModel(client=client.llama_stack, model_id=em, params=None) for em in values],
+                        values=[
+                            LSEmbeddingModel(
+                                client=client.llama_stack,
+                                model_id=em,
+                                params={"embedding_dimension": 768, "context_length": 512},
+                            )
+                            for em in values
+                        ],
                     )
                 )
             else:
@@ -196,15 +221,16 @@ def rag_templates_optimization(
     search_space = AI4RAGSearchSpace(params=params)
 
     event_handler = TmpEventHandler()
-    optimizer_settings = GAMOptSettings(max_evals=optimization_settings.get("max_number_of_rag_patterns", 3))  # TODO
+    optimizer_settings = GAMOptSettings(
+        max_evals=optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
+    )
 
     benchmark_data = pd.read_json(Path(test_data))
 
-    # ai4rag does not accept None for vector_store_type; use a supported default when omitted
-    if not vector_database_id and in_memory_vector_store_scenario:
-        vector_database_id = "chroma"
-    elif not vector_database_id:
-        vector_database_id = "ls_milvus"
+    if not llama_stack_vector_database_id and in_memory_vector_store_scenario:
+        llama_stack_vector_database_id = "chroma"
+    elif not llama_stack_vector_database_id:
+        llama_stack_vector_database_id = "ls_milvus"
 
     rag_exp = AI4RAGExperiment(
         client=None if in_memory_vector_store_scenario else client.llama_stack,
@@ -212,7 +238,7 @@ def rag_templates_optimization(
         optimizer_settings=optimizer_settings,
         search_space=search_space,
         benchmark_data=benchmark_data,
-        vector_store_type=vector_database_id,
+        vector_store_type=llama_stack_vector_database_id,
         documents=documents,
         optimization_metric=optimization_metric,
         # TODO some necessary kwargs (if any at all)
