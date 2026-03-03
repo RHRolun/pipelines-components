@@ -30,8 +30,11 @@ def search_space_preparation(
 ):
     """Runs an AutoRAG experiment's first phase which includes:
 
-    - AutoRAG search space creation given the user's constraints,
-    - embedding and foundation models number limitation and initial selection,
+        - AutoRAG search space creation given the user's constraints,
+        - embedding and foundation models number limitation and initial selection,
+
+    Generates a .yml-formatted report including results of this experiment's phase.
+    For its exact content please refer to the `search_space_prep_report_schema.yml` file.
 
     Args:
         test_data: A path to a .json file containing questions and expected answers that can be retrieved
@@ -58,11 +61,6 @@ def search_space_preparation(
             This list, if too long, will undergo models preselection (limiting).
 
         metric: Quality metric to evaluate the intermediate RAG patterns.
-
-    Returns:
-        search_space_prep_report: A .yml-formatted report including results of this experiment's
-            phase. For its exact content please refer to the `search_space_prep_report_schema.yml`
-            file.
     """
     # ChromaDB (via ai4rag) requires sqlite3 >= 3.35; RHEL9 base image has older sqlite.
     # Patch stdlib sqlite3 with pysqlite3-binary before any ai4rag import.
@@ -101,9 +99,21 @@ def search_space_preparation(
     def _model_id_from_api(url: str, token: str) -> str:
         """Retrieve model id from deployment via OpenAI-compatible GET /v1/models.
 
-        Returns None if unavailable or on error.
+        Args:
+            url: str
+                Model deployment url.
+
+            token: str
+                Authorization token.
+
+        Returns:
+            Model id extracted from the deployment url.
+
+        Raises:
+            ValueError
+                If model id could not be found.
         """
-        api_client = OpenAI(api_key=token, base_url=url)
+        api_client = OpenAI(api_key=token, base_url=url + "/v1")
         models = api_client.models.list()
         if models.data:
             model_id = models.data[0].id
@@ -114,12 +124,13 @@ def search_space_preparation(
     def load_as_langchain_doc(path: str | Path) -> list[Document]:
         """Given path to a text-based file or a folder thereof load everything to memory.
 
-        Return as a list of langchain `Document` objects.
-
         Args:
-            path: A local path to either a text file or a folder of text files.
+            path: str | Path
+                A local path to either a text file or a folder of text files.
 
-        Returns:
+        Returns":
+
+        list[Document]
             A list of langchain `Document` objects.
         """
         if isinstance(path, str):
@@ -137,7 +148,18 @@ def search_space_preparation(
 
         return documents
 
-    def prepare_ai4rag_search_space():
+    def prepare_ai4rag_search_space(n_memory_vector_store_scenario: bool) -> AI4RAGSearchSpace:
+        """Prepares search space for AI4RAG experiment.
+
+        Args:
+            n_memory_vector_store_scenario: bool
+                If set to True, search space for in memory vector store will be created.
+                (One embedding model and one foundation model)
+
+        Returns:
+            AI4RAGSearchSpace
+                Search space for AI4RAG experiment.
+        """
         if in_memory_vector_store_scenario:
             params = [
                 Parameter(
@@ -180,13 +202,6 @@ def search_space_preparation(
     if llama_stack_client_base_url and llama_stack_client_api_key:
         client = Client(llama_stack=LlamaStackClient())
     else:
-        if not all((embeddings_models, generation_models)):
-            raise ValueError(
-                "Automatic model discovery within Openshift cluster is currently not supported. "
-                "All of (`embeddings_models`, `generation_models`) have to be provided when "
-                "running AutoRAG experiment on an in-memory vector store."
-            )
-
         if not all((chat_model_url, chat_model_token, embedding_model_url, embedding_model_token)):
             raise ValueError(
                 "All of (`chat_model_url`, `chat_model_token`, `embedding_model_url`, `embedding_model_token`) "
@@ -198,7 +213,7 @@ def search_space_preparation(
         )
         in_memory_vector_store_scenario = True
 
-    search_space = prepare_ai4rag_search_space()
+    search_space = prepare_ai4rag_search_space(in_memory_vector_store_scenario)
 
     benchmark_data = BenchmarkData(pd.read_json(Path(test_data.path)))
     documents = load_as_langchain_doc(extracted_text.path)
@@ -222,8 +237,8 @@ def search_space_preparation(
 
     else:
         selected_models_names = {
-            "foundation_model": search_space["foundation_model"].values,
-            "embedding_model": search_space["embedding_model"].values,
+            "foundation_model": list(map(str, search_space["foundation_model"].values)),
+            "embedding_model": list(map(str, search_space["embedding_model"].values)),
         }
 
     verbose_search_space_repr = {
