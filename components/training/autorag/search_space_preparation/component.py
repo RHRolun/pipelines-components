@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from kfp import dsl
+from kfp.compiler import Compiler
 
 
 @dsl.component(
@@ -18,11 +19,11 @@ from kfp import dsl
 def search_space_preparation(
     test_data: dsl.Input[dsl.Artifact],
     extracted_text: dsl.Input[dsl.Artifact],
-    chat_model_url: str,
-    chat_model_token: str,
-    embedding_model_url: str,
-    embedding_model_token: str,
     search_space_prep_report: dsl.Output[dsl.Artifact],
+    chat_model_url: Optional[str] = None,
+    chat_model_token: Optional[str] = None,
+    embedding_model_url: Optional[str] = None,
+    embedding_model_token: Optional[str] = None,
     embeddings_models: Optional[List] = None,
     generation_models: Optional[List] = None,
     metric: str = None,
@@ -33,19 +34,29 @@ def search_space_preparation(
     - embedding and foundation models number limitation and initial selection,
 
     Args:
-        test_data: A path to a .json file containing questions and expected answers that can be
-            retrieved from `extracted_data`. Necessary baseline for calculating quality metrics
-            of RAG pipeline.
-        extracted_text: A path to either a single file or a folder of files. The document(s) will
-            be used during model selection process.
+        test_data: A path to a .json file containing questions and expected answers that can be retrieved
+            from input documents. Necessary baseline for calculating quality metrics of RAG pipeline.
+
+        extracted_text: A path to either a single file or a folder of files. The document(s) will be sampled
+            and used during the models selection process.
+
         chat_model_url: Base URL for the chat/generation model API.
+
         chat_model_token: API token for the chat model endpoint.
+
         embedding_model_url: Base URL for the embedding model API.
+
         embedding_model_token: API token for the embedding model endpoint.
-        search_space_prep_report: Output artifact path for the .yml-formatted report.
-        embeddings_models: Optional list of embedding model identifiers.
-        generation_models: Optional list of foundation/generation model identifiers.
-        models_config: User defined models limited selection.
+
+        search_space_prep_report: kfp-enforced argument specifying an output artifact.
+            Provided by kfp backend automatically.
+
+        embeddings_models: List of embedding model identifiers to try out in the experiment process.
+            This list, if too long, will undergo models preselection (limiting).
+
+        generation_models: List of generation model identifiers to try out in the experiment process.
+            This list, if too long, will undergo models preselection (limiting).
+
         metric: Quality metric to evaluate the intermediate RAG patterns.
 
     Returns:
@@ -81,28 +92,24 @@ def search_space_preparation(
     from llama_stack_client import LlamaStackClient
     from openai import OpenAI
 
-    def _model_id_from_api(url: str, token: str) -> Optional[str]:
-        """Retrieve model id from deployment via OpenAI-compatible GET /v1/models.
-
-        Returns None if unavailable or on error.
-        """
-        try:
-            api_client = OpenAI(api_key=token or "dummy", base_url=url.rstrip("/") + "/v1")
-            models = api_client.models.list()
-            if getattr(models, "data", None) and len(models.data) > 0:
-                first = models.data[0]
-                return getattr(first, "id", None)
-        except Exception:
-            pass
-        return None
-
-    # TODO whole component has to be run conditionally
-    # TODO these defaults should be exposed by ai4rag library
     TOP_N_GENERATION_MODELS = 3
     TOP_K_EMBEDDING_MODELS = 2
     METRIC = "faithfulness"
     SAMPLE_SIZE = 5
     SEED = 17
+
+    def _model_id_from_api(url: str, token: str) -> str:
+        """Retrieve model id from deployment via OpenAI-compatible GET /v1/models.
+
+        Returns None if unavailable or on error.
+        """
+        api_client = OpenAI(api_key=token, base_url=url)
+        models = api_client.models.list()
+        if models.data:
+            model_id = models.data[0].id
+        else:
+            raise ValueError(f"Could not access the model based on the provided url: ({url})")
+        return model_id
 
     def load_as_langchain_doc(path: str | Path) -> list[Document]:
         """Given path to a text-based file or a folder thereof load everything to memory.
@@ -130,8 +137,40 @@ def search_space_preparation(
 
         return documents
 
-    # Determine client and scenario first (llama-stack vs in-memory with chat/embedding URLs).
-    # Llama-stack secret must provide: LLAMA_STACK_CLIENT_API_KEY, LLAMA_STACK_CLIENT_BASE_URL
+    def prepare_ai4rag_search_space():
+        if in_memory_vector_store_scenario:
+            params = [
+                Parameter(
+                    "foundation_model",
+                    "C",
+                    values=[
+                        OpenAIFoundationModel(
+                            client=client.generation_model,
+                            model_id=_model_id_from_api(chat_model_url, chat_model_token),
+                        )
+                    ],
+                ),
+                Parameter(
+                    "embedding_model",
+                    "C",
+                    values=[
+                        OpenAIEmbeddingModel(
+                            client=client.embedding_model,
+                            model_id=_model_id_from_api(embedding_model_url, embedding_model_token),
+                        )
+                    ],
+                ),
+            ]
+            return AI4RAGSearchSpace(params=params)
+        else:
+            payload = {}
+            if generation_models:
+                payload["foundation_models"] = [{"model_id": gm} for gm in generation_models]
+            if embeddings_models:
+                payload["embedding_models"] = [{"model_id": gm} for gm in embeddings_models]
+
+            return prepare_search_space_with_llama_stack(payload, client=client.llama_stack)
+
     llama_stack_client_base_url = os.environ.get("LLAMA_STACK_CLIENT_BASE_URL", None)
     llama_stack_client_api_key = os.environ.get("LLAMA_STACK_CLIENT_API_KEY", None)
 
@@ -141,59 +180,33 @@ def search_space_preparation(
     if llama_stack_client_base_url and llama_stack_client_api_key:
         client = Client(llama_stack=LlamaStackClient())
     else:
-        # In-memory scenario: chat_model_url and embedding_model_url (OpenAI-compatible) are used.
+        if not all((embeddings_models, generation_models)):
+            raise ValueError(
+                "Automatic model discovery within Openshift cluster is currently not supported. "
+                "All of (`embeddings_models`, `generation_models`) have to be provided when "
+                "running AutoRAG experiment on an in-memory vector store."
+            )
+
+        if not all((chat_model_url, chat_model_token, embedding_model_url, embedding_model_token)):
+            raise ValueError(
+                "All of (`chat_model_url`, `chat_model_token`, `embedding_model_url`, `embedding_model_token`) "
+                "have to be defined when running AutoRAG experiment on an in-memory vector store."
+            )
         client = Client(
-            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url + "/v1"),
-            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url + "/v1"),
+            generation_model=OpenAI(api_key=chat_model_token, base_url=f"{chat_model_url}/v1"),
+            embedding_model=OpenAI(api_key=embedding_model_token, base_url=f"{embedding_model_url}/v1"),
         )
         in_memory_vector_store_scenario = True
-
-    # When using llama-stack, model lists are required (no automatic discovery). When using
-    # chat/embedding URLs only, get model id from the deployment API (GET /v1/models).
-    if in_memory_vector_store_scenario:
-        if not generation_models:
-            model_id = _model_id_from_api(chat_model_url, chat_model_token)
-            if not model_id:
-                raise ValueError(
-                    "Could not retrieve model id from chat model endpoint. "
-                    "Provide generation_models explicitly or ensure the endpoint supports GET /v1/models."
-                )
-            generation_models = [model_id]
-        if not embeddings_models:
-            model_id = _model_id_from_api(embedding_model_url, embedding_model_token)
-            if not model_id:
-                raise ValueError(
-                    "Could not retrieve model id from embedding model endpoint. "
-                    "Provide embeddings_models explicitly or ensure the endpoint supports GET /v1/models."
-                )
-            embeddings_models = [model_id]
-    elif not generation_models or not embeddings_models:
-        raise NotImplementedError(
-            "For the time being automatic model discovery is not supported during autorag pipeline execution. "
-            "When using llama-stack, please provide `generation_models` and `embeddings_models` arguments."
-        )
-
-    def prepare_ai4rag_search_space():
-        if in_memory_vector_store_scenario:
-            generation_model = OpenAIFoundationModel(client=client.generation_model, model_id=generation_models[0])
-            embeddings_model = OpenAIEmbeddingModel(client=client.embedding_model, model_id=embeddings_models[0])
-            return AI4RAGSearchSpace(
-                params=[
-                    Parameter("foundation_model", "C", values=[generation_model]),
-                    Parameter("embedding_model", "C", values=[embeddings_model]),
-                ]
-            )
-        return prepare_search_space_with_llama_stack(
-            {"foundation_models": generation_models, "embedding_models": embeddings_models},
-            client=client.llama_stack,
-        )
 
     search_space = prepare_ai4rag_search_space()
 
     benchmark_data = BenchmarkData(pd.read_json(Path(test_data.path)))
     documents = load_as_langchain_doc(extracted_text.path)
 
-    if len(embeddings_models) > TOP_K_EMBEDDING_MODELS or len(generation_models) > TOP_N_GENERATION_MODELS:
+    if (
+        len(search_space["foundation_model"].values) > TOP_K_EMBEDDING_MODELS
+        or len(search_space["embedding_model"].values) > TOP_N_GENERATION_MODELS
+    ):
         mps = ModelsPreSelector(
             benchmark_data=benchmark_data.get_random_sample(n_records=SAMPLE_SIZE, random_seed=SEED),
             documents=documents,
@@ -208,7 +221,10 @@ def search_space_preparation(
         selected_models_names = {k: list(map(str, v)) for k, v in selected_models.items()}
 
     else:
-        selected_models_names = {"foundation_model": generation_models, "embedding_model": embeddings_models}
+        selected_models_names = {
+            "foundation_model": search_space["foundation_model"].values,
+            "embedding_model": search_space["embedding_model"].values,
+        }
 
     verbose_search_space_repr = {
         k: v.all_values()
@@ -222,8 +238,6 @@ def search_space_preparation(
 
 
 if __name__ == "__main__":
-    from kfp.compiler import Compiler
-
     Compiler().compile(
         search_space_preparation,
         package_path=__file__.replace(".py", "_component.yaml"),
