@@ -1,4 +1,4 @@
-"""Tests for the documents_sampling component."""
+"""Tests for the documents_discovery component."""
 
 from ..component import documents_sampling
 

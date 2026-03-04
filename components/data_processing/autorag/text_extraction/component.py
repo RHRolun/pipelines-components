@@ -6,19 +6,20 @@ from kfp import dsl
     packages_to_install=["docling[ort]"],
 )
 def text_extraction(
-    sampled_documents_descriptor: dsl.Input[dsl.Artifact],
+    documents_descriptor: dsl.Input[dsl.Artifact],
     extracted_text: dsl.Output[dsl.Artifact],
 ):
     """Text Extraction component.
 
-    Reads the sampled_documents_descriptor YAML (from documents_sampling), fetches
+    Reads the documents_descriptor JSON (from documents_discovery), fetches
     the listed documents from S3, and extracts text using the docling library.
 
     Args:
-        sampled_documents_descriptor: Input artifact containing
-            sampled_documents_descriptor.yaml with bucket, prefix, and documents list.
+        documents_descriptor: Input artifact containing
+            documents_descriptor.json with bucket, prefix, and documents list.
         extracted_text: Output artifact where the extracted text content will be stored.
     """
+    import json
     import logging
     import os
     import sys
@@ -28,15 +29,15 @@ def text_extraction(
     from pathlib import Path
 
     import boto3
-    import yaml
     from docling.datamodel.accelerator_options import AcceleratorOptions
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    SAMPLED_DOCUMENTS_DESCRIPTOR_FILENAME = "sampled_documents_descriptor.yaml"
+    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.json"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     DOWNLOAD_MAX_WORKERS = 8
+    BATCH_SIZE = 10
 
     logger = logging.getLogger("Text Extraction component logger")
     logger.setLevel(logging.INFO)
@@ -44,9 +45,9 @@ def text_extraction(
         handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(handler)
 
-    descriptor_root = Path(sampled_documents_descriptor.path)
+    descriptor_root = Path(documents_descriptor.path)
     if descriptor_root.is_dir():
-        descriptor_path = descriptor_root / SAMPLED_DOCUMENTS_DESCRIPTOR_FILENAME
+        descriptor_path = descriptor_root / DOCUMENTS_DESCRIPTOR_FILENAME
     else:
         descriptor_path = descriptor_root
 
@@ -54,7 +55,7 @@ def text_extraction(
         raise FileNotFoundError(f"Descriptor not found: {descriptor_path}")
 
     with open(descriptor_path) as f:
-        descriptor = yaml.safe_load(f)
+        descriptor = json.load(f)
 
     bucket = descriptor["bucket"]
     documents = descriptor["documents"]
@@ -76,9 +77,9 @@ def text_extraction(
         endpoint_url=s3_creds["AWS_S3_ENDPOINT"],
     )
 
-    def download_document(doc: dict) -> bool:
+    def download_document(doc: dict, base_path: Path) -> bool:
         key = doc["key"]
-        local_path = download_path / key
+        local_path = base_path / key
         local_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             logger.info("Downloading %s", key)
@@ -108,26 +109,38 @@ def text_extraction(
             logger.error("Failed to process %s: %s", file_path_str, e)
             return False
 
-    with tempfile.TemporaryDirectory() as download_dir:
-        download_path = Path(download_dir)
-        download_workers = min(DOWNLOAD_MAX_WORKERS, len(documents)) if documents else 1
-        with ThreadPoolExecutor(max_workers=download_workers) as executor:
-            list(executor.map(download_document, documents))
+    output_dir = Path(extracted_text.path)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-        output_dir = Path(extracted_text.path)
-        output_dir.mkdir(parents=True, exist_ok=True)
+    all_results = []
+    batches = [documents[i : i + BATCH_SIZE] for i in range(0, len(documents), BATCH_SIZE)] if documents else []
 
-        files_to_process = [
-            f for f in download_path.rglob("*") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
-        ]
+    logger.info("Starting text extraction for %d documents in %d batch(es).", len(documents), len(batches))
 
-        logger.info("Starting text extraction for %d documents.", len(files_to_process))
+    for batch_idx, batch_docs in enumerate(batches):
+        logger.info("Processing batch %d/%d (%d documents).", batch_idx + 1, len(batches), len(batch_docs))
 
-        process_workers = min(os.cpu_count() or 1, len(files_to_process)) if files_to_process else 1
-        worker_fn = partial(process_document, output_dir_str=str(output_dir))
-        with ThreadPoolExecutor(max_workers=process_workers) as executor:
-            results = list(executor.map(worker_fn, [str(f) for f in files_to_process]))
+        with tempfile.TemporaryDirectory() as download_dir:
+            batch_download_path = Path(download_dir)
+            download_workers = min(DOWNLOAD_MAX_WORKERS, len(batch_docs))
+            download_fn = partial(download_document, base_path=batch_download_path)
+            with ThreadPoolExecutor(max_workers=download_workers) as executor:
+                list(executor.map(download_fn, batch_docs))
 
+            files_to_process = [
+                f for f in batch_download_path.rglob("*") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+            ]
+
+            if not files_to_process:
+                continue
+
+            process_workers = min(os.cpu_count() or 1, len(files_to_process))
+            worker_fn = partial(process_document, output_dir_str=str(output_dir))
+            with ThreadPoolExecutor(max_workers=process_workers) as executor:
+                batch_results = list(executor.map(worker_fn, [str(f) for f in files_to_process]))
+            all_results.extend(batch_results)
+
+    results = all_results
     processed_count = sum(1 for r in results if r)
     error_count = len(results) - processed_count
 

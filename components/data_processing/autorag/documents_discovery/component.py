@@ -5,24 +5,26 @@ from kfp import dsl
     base_image="registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc",
     packages_to_install=["boto3"],
 )
-def documents_sampling(
+def documents_discovery(
     input_data_bucket_name: str,
     input_data_path: str,
     test_data: dsl.Input[dsl.Artifact] = None,
-    sampling_config: dict = None,
-    sampled_documents: dsl.Output[dsl.Artifact] = None,
+    sampling_enabled: bool = True,
+    sampling_max_size: float = 1,
+    discovered_documents: dsl.Output[dsl.Artifact] = None,
 ):
-    """Documents sampling component.
+    """Documents discovery component.
 
-    Lists available documents list from S3, applies sampling, and writes a YAML manifest
-    (sampled_documents_descriptor.yaml) with metadata. Does not download document contents.
+    Lists available documents from S3, performs sampling if applied and writes a JSON manifest
+    (documents_descriptor.json) with metadata. Does not download document contents.
 
     Args:
         input_data_bucket_name: S3 (or compatible) bucket containing input data.
         input_data_path: Path to folder with input documents within the bucket.
         test_data: Optional input artifact containing test data for sampling.
-        sampling_config: Optional sampling configuration dictionary.
-        sampled_documents: Output artifact containing the sampled documents descriptor yaml file.
+        sampling_enabled: Whether to enable sampling or not.
+        sampling_max_size: Maximum size of sampled documents (in gigabytes).
+        discovered_documents: Output artifact containing the documents descriptor JSON file.
 
     Environment variables (required when run with pipeline secret injection):
         AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION.
@@ -31,21 +33,20 @@ def documents_sampling(
     import logging
     import os
     import sys
+    from math import inf
 
     import boto3
-    import yaml
-
-    SAMPLED_DOCUMENTS_DESCRIPTOR_FILENAME = "sampled_documents_descriptor.yaml"
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
-    MAX_SIZE_BYTES = 1024**3  # 1 GB
 
     logger = logging.getLogger("Document Loader component logger")
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
-    if sampling_config is None:
-        sampling_config = {}
+    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.json"
+    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
+    MAX_SIZE_BYTES = float(inf)
+    if sampling_enabled:
+        MAX_SIZE_BYTES = float(sampling_max_size) * 1024**3
 
     def get_test_data_docs_names() -> list[str]:
         if test_data is None:
@@ -60,7 +61,7 @@ def documents_sampling(
         return docs_names
 
     def build_and_write_descriptor():
-        """Validate S3 credentials, list objects, sample, and write YAML descriptor."""
+        """Validate S3 credentials, list objects, sample, and write JSON descriptor."""
         s3_creds = {
             k: os.environ.get(k)
             for k in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION"]
@@ -89,7 +90,8 @@ def documents_sampling(
             raise Exception("No supported documents found.")
 
         test_data_docs_names = get_test_data_docs_names()
-        supported_files.sort(key=lambda c: c["Key"] not in test_data_docs_names)
+        if test_data_docs_names:
+            supported_files.sort(key=lambda c: c["Key"] not in test_data_docs_names)
 
         total_size = 0
         selected = []
@@ -118,14 +120,14 @@ def documents_sampling(
             "count": len(documents),
         }
 
-        logger.info("Sampled documents descriptor content %s", descriptor)
+        logger.info("Documents descriptor content %s", descriptor)
 
-        os.makedirs(sampled_documents.path, exist_ok=True)
-        descriptor_path = os.path.join(sampled_documents.path, SAMPLED_DOCUMENTS_DESCRIPTOR_FILENAME)
+        os.makedirs(discovered_documents.path, exist_ok=True)
+        descriptor_path = os.path.join(discovered_documents.path, DOCUMENTS_DESCRIPTOR_FILENAME)
         with open(descriptor_path, "w") as f:
-            yaml.safe_dump(descriptor, f, default_flow_style=False, sort_keys=False)
+            json.dump(descriptor, f, indent=2)
 
-        logger.info("Sampled documents descriptor written to %s", descriptor_path)
+        logger.info("Documents descriptor written to %s", descriptor_path)
 
     build_and_write_descriptor()
 
@@ -134,6 +136,6 @@ if __name__ == "__main__":
     from kfp.compiler import Compiler
 
     Compiler().compile(
-        documents_sampling,
+        documents_discovery,
         package_path=__file__.replace(".py", "_component.yaml"),
     )

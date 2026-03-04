@@ -1,6 +1,8 @@
+from typing import Optional
+
 from kfp import dsl
 from kfp.kubernetes import use_secret_as_env
-from kfp_components.components.data_processing.autorag.documents_sampling.component import documents_sampling
+from kfp_components.components.data_processing.autorag.documents_discovery.component import documents_discovery
 from kfp_components.components.data_processing.autorag.test_data_loader.component import test_data_loader
 from kfp_components.components.data_processing.autorag.text_extraction.component import text_extraction
 
@@ -11,11 +13,12 @@ from kfp_components.components.data_processing.autorag.text_extraction.component
 def data_processing_pipeline(
     test_data_secret_name: str,
     input_data_secret_name: str,
-    test_data_bucket_name: str,
-    test_data_key: str,
     input_data_bucket_name: str,
-    sampling_config: dict,
     input_data_key: str,
+    sampling_enabled: bool = False,
+    sampling_max_size: Optional[float] = None,
+    test_data_bucket_name: Optional[str] = None,
+    test_data_key: Optional[str] = None,
 ):
     """Defines a pipeline to load and sample input data for AutoRAG.
 
@@ -40,30 +43,34 @@ def data_processing_pipeline(
         input_data_key : str
             Path to folder with input documents within bucket.
 
-        sampling_config : dict
-            Optional sampling configuration dictionary.
+        sampling_enabled : bool
+            Whether to enable sampling or not.
+
+        sampling_max_size : float
+            Maximum size of sampled documents (in gigabytes).
     """
     test_data_loader_task = test_data_loader(
         test_data_bucket_name=test_data_bucket_name,
         test_data_path=test_data_key,
     )
 
-    documents_sampling_task = documents_sampling(
+    documents_discovery_task = documents_discovery(
         input_data_bucket_name=input_data_bucket_name,
         input_data_path=input_data_key,
         test_data=test_data_loader_task.outputs["test_data"],
-        sampling_config=sampling_config,
+        sampling_enabled=sampling_enabled,
+        sampling_max_size=sampling_max_size,
     )
 
-    documents_sampling_task.set_caching_options(enable_caching=False)
+    documents_discovery_task.set_caching_options(enable_caching=False)
     test_data_loader_task.set_caching_options(enable_caching=False)
 
     text_extraction_task = text_extraction(
-        sampled_documents_descriptor=documents_sampling_task.outputs["sampled_documents"],
+        documents_descriptor=documents_discovery_task.outputs["discovered_documents"],
     )
 
     for task, secret_name in zip(
-        [test_data_loader_task, documents_sampling_task, text_extraction_task],
+        [test_data_loader_task, documents_discovery_task, text_extraction_task],
         [test_data_secret_name, input_data_secret_name, input_data_secret_name],
     ):
         use_secret_as_env(
@@ -83,6 +90,6 @@ if __name__ == "__main__":
 
     from kfp.compiler import Compiler
 
-    output_path = pathlib.Path(__file__).with_name("data_loading_pipeline.yaml")
+    output_path = pathlib.Path(__file__).with_name("data_processing_pipeline.yaml")
     Compiler().compile(pipeline_func=data_processing_pipeline, package_path=str(output_path))
     print(f"Pipeline compiled to {output_path}")

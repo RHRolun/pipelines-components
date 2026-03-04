@@ -1,5 +1,5 @@
 ---
-name: documents_sampling
+name: documents_discovery
 stability: alpha  # New component without proven track record
 dependencies:
   kubeflow:
