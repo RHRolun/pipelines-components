@@ -69,7 +69,7 @@ def example_minimal_usage():
 
 ## Metadata 🗂️
 
-- **Name**: data_processing_autorag
+- **Name**: autorag
 - **Stability**: alpha
 - **Dependencies**:
   - Kubeflow:
@@ -80,11 +80,14 @@ def example_minimal_usage():
 - **Tags**:
   - data_processing
   - text_extraction
-  - documents_sampling
+  - documents_discovery
 - **Last Verified**: 2026-02-04 11:46:16+00:00
 - **Owners**:
-  - Approvers: None
-  - Reviewers: None
+  - Approvers:
+    - LukaszCmielowski
+  - Reviewers:
+    - LukaszCmielowski
+
 
 <!-- custom-content -->
 
