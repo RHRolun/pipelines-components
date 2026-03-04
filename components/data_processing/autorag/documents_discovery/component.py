@@ -22,8 +22,8 @@ def documents_discovery(
         input_data_bucket_name: S3 (or compatible) bucket containing input data.
         input_data_path: Path to folder with input documents within the bucket.
         test_data: Optional input artifact containing test data for sampling.
-        TODO
-
+        sampling_enabled: Whether to enable sampling or not.
+        sampling_max_size: Maximum size of sampled documents (in gigabytes).
         discovered_documents: Output artifact containing the documents descriptor yaml file.
 
     Environment variables (required when run with pipeline secret injection):

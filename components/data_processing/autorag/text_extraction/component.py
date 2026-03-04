@@ -37,7 +37,7 @@ def text_extraction(
     DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.yaml"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     DOWNLOAD_MAX_WORKERS = 8
-    BATCH_SIZE = 20
+    BATCH_SIZE = 10
 
     logger = logging.getLogger("Text Extraction component logger")
     logger.setLevel(logging.INFO)
