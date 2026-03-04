@@ -221,9 +221,8 @@ def rag_templates_optimization(
     search_space = AI4RAGSearchSpace(params=params)
 
     event_handler = TmpEventHandler()
-    optimizer_settings = GAMOptSettings(
-        max_evals=optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
-    )
+    max_rag_patterns = optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
+    optimizer_settings = GAMOptSettings(max_evals=int(max_rag_patterns))
 
     benchmark_data = pd.read_json(Path(test_data))
 
