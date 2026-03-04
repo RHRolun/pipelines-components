@@ -47,7 +47,7 @@ def documents_discovery(
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     MAX_SIZE_BYTES = float(inf)
     if sampling_enabled:
-        MAX_SIZE_BYTES = float(sampling_max_size) * 1024 ** 3
+        MAX_SIZE_BYTES = float(sampling_max_size) * 1024**3
 
     def get_test_data_docs_names() -> list[str]:
         if test_data is None:

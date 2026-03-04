@@ -113,10 +113,7 @@ def text_extraction(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     all_results = []
-    batches = [
-        documents[i : i + BATCH_SIZE]
-        for i in range(0, len(documents), BATCH_SIZE)
-    ] if documents else []
+    batches = [documents[i : i + BATCH_SIZE] for i in range(0, len(documents), BATCH_SIZE)] if documents else []
 
     logger.info("Starting text extraction for %d documents in %d batch(es).", len(documents), len(batches))
 
@@ -131,8 +128,7 @@ def text_extraction(
                 list(executor.map(download_fn, batch_docs))
 
             files_to_process = [
-                f for f in batch_download_path.rglob("*")
-                if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+                f for f in batch_download_path.rglob("*") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
             ]
 
             if not files_to_process:

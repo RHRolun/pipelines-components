@@ -25,7 +25,7 @@ with S3 via environment-based credentials (e.g. RHOAI Connections) using ibm_bot
 | `test_data`              | `dsl.Input[dsl.Artifact]` | `None`    | Optional input artifact containing test data for document sampling. |
 | `sampling_enabled`       | `bool`                    | `True`    | Whether to enable sampling or not.                                  |
 | `sampling_max_size`      | `float`                   | `1`       | Maximum size of sampled documents in gigabytes.                     |
- 
+
 ### Input data
 
 To access the input data stored in an S3-compatible storage, the component requires the following environment variables to be available at runtime:
@@ -111,7 +111,6 @@ def my_pipeline(test_data):
     )
     return load_task
 ```
-
 
 ## Supported Document Types 📋
 
