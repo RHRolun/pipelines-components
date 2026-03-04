@@ -1,4 +1,4 @@
-"""Local runner tests for the documents_sampling component."""
+"""Local runner tests for the documents_discovery component."""
 
 from ..component import documents_sampling
 

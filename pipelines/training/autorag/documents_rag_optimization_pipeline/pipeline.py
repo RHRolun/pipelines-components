@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from kfp import dsl
 from kfp.kubernetes import use_secret_as_env
-from kfp_components.components.data_processing.autorag.documents_sampling import documents_sampling
+from kfp_components.components.data_processing.autorag.documents_discovery import documents_discovery
 from kfp_components.components.data_processing.autorag.test_data_loader import test_data_loader
 from kfp_components.components.data_processing.autorag.text_extraction import text_extraction
 from kfp_components.components.training.autorag.leaderboard_evaluation import leaderboard_evaluation
@@ -67,19 +67,18 @@ def documents_rag_optimization_pipeline(
         test_data_path=test_data_key,
     )
 
-    documents_sampling_task = documents_sampling(
+    documents_discovery_task = documents_discovery(
         input_data_bucket_name=input_data_bucket_name,
         input_data_path=input_data_key,
         test_data=test_data_loader_task.outputs["test_data"],
-        sampling_config={},
     )
 
     text_extraction_task = text_extraction(
-        sampled_documents_descriptor=documents_sampling_task.outputs["sampled_documents"],
+        documents_descriptor=documents_discovery_task.outputs["discovered_documents"],
     )
 
     for task, secret_name in zip(
-        [test_data_loader_task, documents_sampling_task, text_extraction_task],
+        [test_data_loader_task, documents_discovery_task, text_extraction_task],
         [test_data_secret_name, input_data_secret_name, input_data_secret_name],
     ):
         use_secret_as_env(
