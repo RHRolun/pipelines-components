@@ -43,7 +43,11 @@ def data_processing_pipeline(
         input_data_key : str
             Path to folder with input documents within bucket.
 
-        TODO
+        sampling_enabled : bool
+            Whether to enable sampling or not.
+
+        sampling_max_size : float
+            Maximum size of sampled documents (in gigabytes).
     """
     test_data_loader_task = test_data_loader(
         test_data_bucket_name=test_data_bucket_name,
