@@ -44,13 +44,13 @@ To access the input data stored in an S3-compatible storage, the component requi
 
 ## Outputs 📤
 
-| Output              | Type           | Description                                               |
-|---------------------|----------------|-----------------------------------------------------------|
-| `sampled_documents` | `dsl.Artifact` | Artifact containing `sampled_documents_descriptor.yaml`   |  
+| Output                 | Type           | Description                                        |
+|------------------------|----------------|----------------------------------------------------|
+| `discovered_documents` | `dsl.Artifact` | Artifact containing `documents_descriptor.yaml`    |  
 
 ### Sampled documents descriptor (YAML)
 
-The artifact is a directory containing a single file: **`sampled_documents_descriptor.yaml`**.
+The artifact is a directory containing a single file: **`documents_descriptor.yaml`**.
 It describes the sampled set and S3 locations so downstream components can fetch documents on demand.
 
 | Field               | Description                                              |
@@ -69,12 +69,12 @@ It describes the sampled set and S3 locations so downstream components can fetch
 
 ```python
 from kfp import dsl
-from kfp_components.components.data_processing.autorag.documents_sampling import documents_sampling
+from kfp_components.components.data_processing.autorag.documents_sampling import documents_discovery
 
 @dsl.pipeline(name="document-loading-pipeline")
 def my_pipeline():
     """Example pipeline demonstrating document loading."""
-    load_task = documents_sampling(
+    load_task = documents_discovery(
         input_data_bucket_name="s3-documents-bucket",
         input_data_path="documents-path"
     )
@@ -87,7 +87,7 @@ def my_pipeline():
 @dsl.pipeline(name="document-loading-with-sampling-pipeline")
 def my_pipeline(test_data):
     """Example pipeline with document sampling."""
-    load_task = documents_sampling(
+    load_task = documents_discovery(
         input_data_bucket_name="s3-documents-bucket",
         input_data_path="documents-path",
         test_data=test_data,
@@ -102,7 +102,7 @@ def my_pipeline(test_data):
 @dsl.pipeline(name="document-loading-with-sampling-pipeline")
 def my_pipeline(test_data):
     """Example pipeline with document sampling."""
-    load_task = documents_sampling(
+    load_task = documents_discovery(
         input_data_bucket_name="s3-documents-bucket",
         input_data_path="documents-path",
         test_data=test_data,
@@ -130,7 +130,7 @@ def my_pipeline(test_data):
 
 ## Metadata 🗂️
 
-- **Name**: documents_sampling
+- **Name**: documents_discovery
 - **Stability**: alpha
 - **Dependencies**:
   - Kubeflow:
