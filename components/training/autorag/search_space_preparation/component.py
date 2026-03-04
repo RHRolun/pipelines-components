@@ -83,7 +83,7 @@ def search_space_preparation(
     from ai4rag.core.experiment.mps import ModelsPreSelector
     from ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel
     from ai4rag.rag.foundation_models.openai_model import OpenAIFoundationModel
-    from ai4rag.search_space.prepare_search_space import prepare_search_space_with_llama_stack
+    from ai4rag.search_space.prepare.prepare_search_space import prepare_search_space_with_llama_stack
     from ai4rag.search_space.src.parameter import Parameter
     from ai4rag.search_space.src.search_space import AI4RAGSearchSpace
     from langchain_core.documents import Document
