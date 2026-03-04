@@ -75,15 +75,18 @@ def search_space_preparation(
 
     import os
     from collections import namedtuple
+    from dataclasses import fields, is_dataclass
     from pathlib import Path
 
     import pandas as pd
     import yaml as yml
     from ai4rag.core.experiment.benchmark_data import BenchmarkData
     from ai4rag.core.experiment.mps import ModelsPreSelector
+    from ai4rag.rag.embedding.base_model import BaseEmbeddingModel
     from ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel
+    from ai4rag.rag.foundation_models.base_model import BaseFoundationModel
     from ai4rag.rag.foundation_models.openai_model import OpenAIFoundationModel
-    from ai4rag.search_space.prepare_search_space import prepare_search_space_with_llama_stack
+    from ai4rag.search_space.prepare.prepare_search_space import prepare_search_space_with_llama_stack
     from ai4rag.search_space.src.parameter import Parameter
     from ai4rag.search_space.src.search_space import AI4RAGSearchSpace
     from langchain_core.documents import Document
@@ -96,8 +99,17 @@ def search_space_preparation(
     SAMPLE_SIZE = 5
     SEED = 17
 
-    def _model_id_from_api(url: str, token: str) -> str:
-        """Retrieve model id from deployment via OpenAI-compatible GET /v1/models.
+    if embedding_model_url and chat_model_url:
+        # Specification of OpenAI API compatibility
+        embedding_model_url += "/v1"
+        chat_model_url += "/v1"
+
+    def _get_model_metadata_from(url: str, token: str) -> dict:
+        """Retrieve specified model's metadata from the model's deployment URL.
+
+        Currently the following keys are returned:
+            - id: model's identifier
+            - max_model_len: size of the context window
 
         Args:
             url: str
@@ -107,19 +119,30 @@ def search_space_preparation(
                 Authorization token.
 
         Returns:
-            Model id extracted from the deployment url.
+            Model's metadata as key-value mapping.
 
         Raises:
             ValueError
-                If model id could not be found.
+                If model metadata could not be retrieved (for whatever reason).
         """
-        api_client = OpenAI(api_key=token, base_url=url + "/v1")
+        api_client = OpenAI(api_key=token, base_url=url)
         models = api_client.models.list()
+        response = {"id": "", "max_model_len": 0}
+        required_md = {"id"}
+
         if models.data:
-            model_id = models.data[0].id
-        else:
-            raise ValueError(f"Could not access the model based on the provided url: ({url})")
-        return model_id
+            response["id"] = getattr(models.data[0], "id", "")
+            response["max_model_len"] = getattr(models.data[0], "max_model_len", 0)
+
+        for k in response.keys() & required_md:
+            if not response[k]:
+                raise ValueError(
+                    f"Could not retrieve all the required model metadata from the provided url: ({url}). "
+                    f"Please verify all the required data ({required_md}) is defined on "
+                    "the deployment and can be obtained programmatically."
+                )
+
+        return response
 
     def load_as_langchain_doc(path: str | Path) -> list[Document]:
         """Given path to a text-based file or a folder thereof load everything to memory.
@@ -148,19 +171,17 @@ def search_space_preparation(
 
         return documents
 
-    def prepare_ai4rag_search_space(n_memory_vector_store_scenario: bool) -> AI4RAGSearchSpace:
+    def prepare_ai4rag_search_space() -> AI4RAGSearchSpace:
         """Prepares search space for AI4RAG experiment.
-
-        Args:
-            n_memory_vector_store_scenario: bool
-                If set to True, search space for in memory vector store will be created.
-                (One embedding model and one foundation model)
 
         Returns:
             AI4RAGSearchSpace
                 Search space for AI4RAG experiment.
         """
         if in_memory_vector_store_scenario:
+            gen_model_md = _get_model_metadata_from(chat_model_url, chat_model_token)
+            em_model_md = _get_model_metadata_from(embedding_model_url, embedding_model_token)
+            em_model_params = {"context_length": em_model_md["max_model_len"]} if em_model_md["max_model_len"] else {}
             params = [
                 Parameter(
                     "foundation_model",
@@ -168,7 +189,7 @@ def search_space_preparation(
                     values=[
                         OpenAIFoundationModel(
                             client=client.generation_model,
-                            model_id=_model_id_from_api(chat_model_url, chat_model_token),
+                            model_id=gen_model_md["id"],
                         )
                     ],
                 ),
@@ -178,7 +199,8 @@ def search_space_preparation(
                     values=[
                         OpenAIEmbeddingModel(
                             client=client.embedding_model,
-                            model_id=_model_id_from_api(embedding_model_url, embedding_model_token),
+                            model_id=em_model_md["id"],
+                            params=em_model_params,
                         )
                     ],
                 ),
@@ -192,6 +214,26 @@ def search_space_preparation(
                 payload["embedding_models"] = [{"model_id": gm} for gm in embeddings_models]
 
             return prepare_search_space_with_llama_stack(payload, client=client.llama_stack)
+
+    def represent_model_instance(dumper, model: BaseFoundationModel | BaseEmbeddingModel) -> yml.Node:
+        """Helper method instructing the yml.Dumper on how to serialize the *Model instances"""
+        if isinstance(model, BaseEmbeddingModel):
+            type_ = "embedding"
+        elif isinstance(model, BaseFoundationModel):
+            type_ = "generation"
+
+        params = model.params
+        if is_dataclass(params):  # LS* model classes hold params as dataclass instances
+            params = {
+                field.name: getattr(model.params, field.name)
+                for field in fields(model.params)
+                if getattr(model.params, field.name)
+            }
+
+        return dumper.represent_mapping("!Model", {model.model_id: params or {}, "type_": type_})
+
+    yml.add_multi_representer(BaseFoundationModel, represent_model_instance, Dumper=yml.SafeDumper)
+    yml.add_multi_representer(BaseEmbeddingModel, represent_model_instance, Dumper=yml.SafeDumper)
 
     llama_stack_client_base_url = os.environ.get("LLAMA_STACK_CLIENT_BASE_URL", None)
     llama_stack_client_api_key = os.environ.get("LLAMA_STACK_CLIENT_API_KEY", None)
@@ -208,12 +250,12 @@ def search_space_preparation(
                 "have to be defined when running AutoRAG experiment on an in-memory vector store."
             )
         client = Client(
-            generation_model=OpenAI(api_key=chat_model_token, base_url=f"{chat_model_url}/v1"),
-            embedding_model=OpenAI(api_key=embedding_model_token, base_url=f"{embedding_model_url}/v1"),
+            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url),
+            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url),
         )
         in_memory_vector_store_scenario = True
 
-    search_space = prepare_ai4rag_search_space(in_memory_vector_store_scenario)
+    search_space = prepare_ai4rag_search_space()
 
     benchmark_data = BenchmarkData(pd.read_json(Path(test_data.path)))
     documents = load_as_langchain_doc(extracted_text.path)
@@ -237,8 +279,8 @@ def search_space_preparation(
 
     else:
         selected_models_names = {
-            "foundation_model": list(map(str, search_space["foundation_model"].values)),
-            "embedding_model": list(map(str, search_space["embedding_model"].values)),
+            "foundation_model": search_space["foundation_model"].values,
+            "embedding_model": search_space["embedding_model"].values,
         }
 
     verbose_search_space_repr = {
@@ -249,7 +291,7 @@ def search_space_preparation(
     verbose_search_space_repr |= selected_models_names
 
     with open(search_space_prep_report.path, "w") as report_file:
-        yml.dump(verbose_search_space_repr, report_file, yml.SafeDumper)
+        yml.safe_dump(verbose_search_space_repr, report_file)
 
 
 if __name__ == "__main__":

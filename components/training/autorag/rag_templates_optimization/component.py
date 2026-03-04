@@ -83,8 +83,10 @@ def rag_templates_optimization(
     from ai4rag.core.experiment.experiment import AI4RAGExperiment
     from ai4rag.core.experiment.results import ExperimentResults
     from ai4rag.core.hpo.gam_opt import GAMOptSettings
+    from ai4rag.rag.embedding.base_model import BaseEmbeddingModel
     from ai4rag.rag.embedding.llama_stack import LSEmbeddingModel
     from ai4rag.rag.embedding.openai_model import OpenAIEmbeddingModel
+    from ai4rag.rag.foundation_models.base_model import BaseFoundationModel
     from ai4rag.rag.foundation_models.llama_stack import LSFoundationModel
     from ai4rag.rag.foundation_models.openai_model import OpenAIFoundationModel
     from ai4rag.search_space.src.parameter import Parameter
@@ -97,6 +99,11 @@ def rag_templates_optimization(
     MAX_NUMBER_OF_RAG_PATTERNS = 8
     METRIC = "faithfulness"
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
+
+    if embedding_model_url and chat_model_url:
+        # Specification of OpenAI API compatibility
+        embedding_model_url += "/v1"
+        chat_model_url += "/v1"
 
     class TmpEventHandler(BaseEventHandler):
         """Exists temporarily only for the purpose of satisying type hinting checks"""
@@ -146,10 +153,33 @@ def rag_templates_optimization(
                 "have to be defined when running AutoRAG experiment using an in-memory vector store."
             )
         client = Client(
-            generation_model=OpenAI(api_key=chat_model_token, base_url=f"{chat_model_url}/v1"),
-            embedding_model=OpenAI(api_key=embedding_model_token, base_url=f"{embedding_model_url}/v1"),
+            generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url),
+            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url),
         )
         in_memory_vector_store_scenario = True
+
+    def construct_model_instance(loader, node: yml.MappingNode) -> BaseEmbeddingModel | BaseFoundationModel:
+        """Instructs yml.Loader on how to construct "!Model" tag."""
+        mapping = loader.construct_mapping(node, deep=True)
+
+        match mapping:
+            case {"type_": "embedding", **id_to_params}:
+                model_id, params = id_to_params.popitem()
+                if in_memory_vector_store_scenario:
+                    return OpenAIEmbeddingModel(client=client.embedding_model, model_id=model_id, params=params)
+                else:
+                    return LSEmbeddingModel(client=client.llama_stack, model_id=model_id, params=params)
+
+            case {"type_": "generation", **id_to_params}:
+                model_id, params = id_to_params.popitem()
+                if in_memory_vector_store_scenario:
+                    return OpenAIFoundationModel(client=client.embedding_model, model_id=model_id, params=params)
+                else:
+                    return LSFoundationModel(client=client.llama_stack, model_id=model_id, params=params)
+            case _:
+                raise ValueError(f"Cannot load the yml-serialized !Model tag: {mapping}")
+
+    yml.add_constructor("!Model", construct_model_instance, Loader=yml.SafeLoader)
 
     optimization_settings = optimization_settings if optimization_settings else {}
     if not (optimization_metric := optimization_settings.get("metric", None)):
@@ -162,63 +192,13 @@ def rag_templates_optimization(
 
     documents = load_as_langchain_doc(extracted_text)
 
-    # recreate the search space
+    # reload the search space
     with open(search_space_prep_report, "r") as f:
-        search_space = yml.load(f, yml.SafeLoader)
-    params = []
-    if in_memory_vector_store_scenario:
-        for param, values in search_space.items():
-            if param == "foundation_model":
-                params.append(
-                    Parameter(
-                        "foundation_model",
-                        "C",
-                        values=[OpenAIFoundationModel(client=client.generation_model, model_id=fm) for fm in values],
-                    )
-                )
-            elif param == "embedding_model":
-                params.append(
-                    Parameter(
-                        "embedding_model",
-                        "C",
-                        values=[
-                            OpenAIEmbeddingModel(
-                                client=client.embedding_model,
-                                model_id=em,
-                                params={"embedding_dimension": 768, "context_length": 512},
-                            )
-                            for em in values
-                        ],
-                    )
-                )
-    else:
-        for param, values in search_space.items():
-            if param == "foundation_model":
-                params.append(
-                    Parameter(
-                        "foundation_model",
-                        "C",
-                        values=[LSFoundationModel(client=client.llama_stack, model_id=fm) for fm in values],
-                    )
-                )
-            elif param == "embedding_model":
-                params.append(
-                    Parameter(
-                        "embedding_model",
-                        "C",
-                        values=[
-                            LSEmbeddingModel(
-                                client=client.llama_stack,
-                                model_id=em,
-                                params={"embedding_dimension": 768, "context_length": 512},
-                            )
-                            for em in values
-                        ],
-                    )
-                )
-            else:
-                params.append(Parameter(param, "C", values=values))
-    search_space = AI4RAGSearchSpace(params=params)
+        search_space = yml.safe_load(f)
+
+    search_space = AI4RAGSearchSpace(
+        params=[Parameter(param, "C", values=values) for param, values in search_space.items()]
+    )
 
     event_handler = TmpEventHandler()
     max_rag_patterns = optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
