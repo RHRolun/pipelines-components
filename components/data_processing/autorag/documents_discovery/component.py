@@ -15,8 +15,8 @@ def documents_discovery(
 ):
     """Documents discovery component.
 
-    Lists available documents from S3, performs sampling if applied and writes a YAML manifest
-    (documents_descriptor.yaml) with metadata. Does not download document contents.
+    Lists available documents from S3, performs sampling if applied and writes a JSON manifest
+    (documents_descriptor.json) with metadata. Does not download document contents.
 
     Args:
         input_data_bucket_name: S3 (or compatible) bucket containing input data.
@@ -24,7 +24,7 @@ def documents_discovery(
         test_data: Optional input artifact containing test data for sampling.
         sampling_enabled: Whether to enable sampling or not.
         sampling_max_size: Maximum size of sampled documents (in gigabytes).
-        discovered_documents: Output artifact containing the documents descriptor yaml file.
+        discovered_documents: Output artifact containing the documents descriptor JSON file.
 
     Environment variables (required when run with pipeline secret injection):
         AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION.
@@ -36,14 +36,13 @@ def documents_discovery(
     from math import inf
 
     import boto3
-    import yaml
 
     logger = logging.getLogger("Document Loader component logger")
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
-    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.yaml"
+    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.json"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     MAX_SIZE_BYTES = float(inf)
     if sampling_enabled:
@@ -62,7 +61,7 @@ def documents_discovery(
         return docs_names
 
     def build_and_write_descriptor():
-        """Validate S3 credentials, list objects, sample, and write YAML descriptor."""
+        """Validate S3 credentials, list objects, sample, and write JSON descriptor."""
         s3_creds = {
             k: os.environ.get(k)
             for k in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION"]
@@ -126,7 +125,7 @@ def documents_discovery(
         os.makedirs(discovered_documents.path, exist_ok=True)
         descriptor_path = os.path.join(discovered_documents.path, DOCUMENTS_DESCRIPTOR_FILENAME)
         with open(descriptor_path, "w") as f:
-            yaml.safe_dump(descriptor, f, default_flow_style=False, sort_keys=False)
+            json.dump(descriptor, f, indent=2)
 
         logger.info("Documents descriptor written to %s", descriptor_path)
 

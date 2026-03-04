@@ -11,14 +11,15 @@ def text_extraction(
 ):
     """Text Extraction component.
 
-    Reads the documents_descriptor YAML (from documents_discovery), fetches
+    Reads the documents_descriptor JSON (from documents_discovery), fetches
     the listed documents from S3, and extracts text using the docling library.
 
     Args:
         documents_descriptor: Input artifact containing
-            documents_descriptor.yaml with bucket, prefix, and documents list.
+            documents_descriptor.json with bucket, prefix, and documents list.
         extracted_text: Output artifact where the extracted text content will be stored.
     """
+    import json
     import logging
     import os
     import sys
@@ -28,13 +29,12 @@ def text_extraction(
     from pathlib import Path
 
     import boto3
-    import yaml
     from docling.datamodel.accelerator_options import AcceleratorOptions
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
-    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.yaml"
+    DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.json"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     DOWNLOAD_MAX_WORKERS = 8
     BATCH_SIZE = 10
@@ -55,7 +55,7 @@ def text_extraction(
         raise FileNotFoundError(f"Descriptor not found: {descriptor_path}")
 
     with open(descriptor_path) as f:
-        descriptor = yaml.safe_load(f)
+        descriptor = json.load(f)
 
     bucket = descriptor["bucket"]
     documents = descriptor["documents"]
