@@ -1,0 +1,487 @@
+# PIPELINE DEFINITION
+# Name: autorag-data-processing-pipeline
+# Description: Pipeline to load test data and documents for AutoRAG.
+# Inputs:
+#    input_data_bucket_name: str
+#    input_data_key: str
+#    input_data_secret_name: str
+#    sampling_enabled: bool [Default: False]
+#    sampling_max_size: float
+#    test_data_bucket_name: str
+#    test_data_key: str
+#    test_data_secret_name: str
+components:
+  comp-documents-discovery:
+    executorLabel: exec-documents-discovery
+    inputDefinitions:
+      artifacts:
+        test_data:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: Optional input artifact containing test data for sampling.
+          isOptional: true
+      parameters:
+        input_data_bucket_name:
+          description: S3 (or compatible) bucket containing input data.
+          parameterType: STRING
+        input_data_path:
+          description: Path to folder with input documents within the bucket.
+          parameterType: STRING
+        sampling_enabled:
+          defaultValue: true
+          description: Whether to enable sampling or not.
+          isOptional: true
+          parameterType: BOOLEAN
+        sampling_max_size:
+          defaultValue: 1.0
+          description: Maximum size of sampled documents (in gigabytes).
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      artifacts:
+        discovered_documents:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-test-data-loader:
+    executorLabel: exec-test-data-loader
+    inputDefinitions:
+      parameters:
+        test_data_bucket_name:
+          description: 'S3 (or compatible) bucket that contains the test
+
+            data file.'
+          parameterType: STRING
+        test_data_path:
+          description: S3 object key to the JSON test data file.
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        test_data:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-text-extraction:
+    executorLabel: exec-text-extraction
+    inputDefinitions:
+      artifacts:
+        documents_descriptor:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: 'Input artifact containing
+
+            documents_descriptor.yaml with bucket, prefix, and documents list.'
+    outputDefinitions:
+      artifacts:
+        extracted_text:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-documents-discovery:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - documents_discovery
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'boto3'  && \
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef documents_discovery(\n    input_data_bucket_name: str,\n    input_data_path:\
+          \ str,\n    test_data: dsl.Input[dsl.Artifact] = None,\n    sampling_enabled:\
+          \ bool = True,\n    sampling_max_size: float = 1,\n    discovered_documents:\
+          \ dsl.Output[dsl.Artifact] = None,\n):\n    \"\"\"Documents discovery component.\n\
+          \n    Lists available documents from S3, performs sampling if applied and\
+          \ writes a YAML manifest\n    (documents_descriptor.yaml) with metadata.\
+          \ Does not download document contents.\n\n    Args:\n        input_data_bucket_name:\
+          \ S3 (or compatible) bucket containing input data.\n        input_data_path:\
+          \ Path to folder with input documents within the bucket.\n        test_data:\
+          \ Optional input artifact containing test data for sampling.\n        sampling_enabled:\
+          \ Whether to enable sampling or not.\n        sampling_max_size: Maximum\
+          \ size of sampled documents (in gigabytes).\n        discovered_documents:\
+          \ Output artifact containing the documents descriptor yaml file.\n\n   \
+          \ Environment variables (required when run with pipeline secret injection):\n\
+          \        AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION.\n\
+          \    \"\"\"\n    import json\n    import logging\n    import os\n    import\
+          \ sys\n    from math import inf\n\n    import boto3\n    import yaml\n\n\
+          \    logger = logging.getLogger(\"Document Loader component logger\")\n\
+          \    logger.setLevel(logging.INFO)\n    handler = logging.StreamHandler(sys.stdout)\n\
+          \    logger.addHandler(handler)\n\n    DOCUMENTS_DESCRIPTOR_FILENAME = \"\
+          documents_descriptor.yaml\"\n    SUPPORTED_EXTENSIONS = {\".pdf\", \".docx\"\
+          , \".pptx\", \".md\", \".html\", \".txt\"}\n    MAX_SIZE_BYTES = float(inf)\n\
+          \    if sampling_enabled:\n        MAX_SIZE_BYTES = float(sampling_max_size)\
+          \ * 1024**3\n\n    def get_test_data_docs_names() -> list[str]:\n      \
+          \  if test_data is None:\n            return []\n        with open(test_data.path,\
+          \ \"r\") as f:\n            benchmark = json.load(f)\n\n        docs_names\
+          \ = []\n        for question in benchmark:\n            docs_names.extend(question[\"\
+          correct_answer_document_ids\"])\n\n        return docs_names\n\n    def\
+          \ build_and_write_descriptor():\n        \"\"\"Validate S3 credentials,\
+          \ list objects, sample, and write YAML descriptor.\"\"\"\n        s3_creds\
+          \ = {\n            k: os.environ.get(k)\n            for k in [\"AWS_ACCESS_KEY_ID\"\
+          , \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\", \"AWS_DEFAULT_REGION\"\
+          ]\n        }\n        for k, v in s3_creds.items():\n            if v is\
+          \ None:\n                raise ValueError(\n                    \"%s environment\
+          \ variable not set. Check if kubernetes secret was configured properly\"\
+          \ % k\n                )\n\n        s3_client = boto3.client(\n        \
+          \    \"s3\",\n            endpoint_url=s3_creds[\"AWS_S3_ENDPOINT\"],\n\
+          \            region_name=s3_creds[\"AWS_DEFAULT_REGION\"],\n           \
+          \ aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"],\n            aws_secret_access_key=s3_creds[\"\
+          AWS_SECRET_ACCESS_KEY\"],\n        )\n\n        contents = s3_client.list_objects_v2(\n\
+          \            Bucket=input_data_bucket_name,\n            Prefix=input_data_path,\n\
+          \        ).get(\"Contents\", [])\n\n        supported_files = [c for c in\
+          \ contents if c[\"Key\"].endswith(tuple(SUPPORTED_EXTENSIONS))]\n      \
+          \  if not supported_files:\n            raise Exception(\"No supported documents\
+          \ found.\")\n\n        test_data_docs_names = get_test_data_docs_names()\n\
+          \        if test_data_docs_names:\n            supported_files.sort(key=lambda\
+          \ c: c[\"Key\"] not in test_data_docs_names)\n\n        total_size = 0\n\
+          \        selected = []\n        for file in supported_files:\n         \
+          \   if total_size + file[\"Size\"] > MAX_SIZE_BYTES:\n                continue\n\
+          \            selected.append(file)\n            total_size += file[\"Size\"\
+          ]\n\n        documents = []\n        for file_info in selected:\n      \
+          \      key = file_info[\"Key\"]\n            size_bytes = file_info[\"Size\"\
+          ]\n            documents.append(\n                {\n                  \
+          \  \"key\": key,\n                    \"size_bytes\": size_bytes,\n    \
+          \            }\n            )\n\n        descriptor = {\n            \"\
+          bucket\": input_data_bucket_name,\n            \"prefix\": input_data_path,\n\
+          \            \"documents\": documents,\n            \"total_size_bytes\"\
+          : total_size,\n            \"count\": len(documents),\n        }\n\n   \
+          \     logger.info(\"Documents descriptor content %s\", descriptor)\n\n \
+          \       os.makedirs(discovered_documents.path, exist_ok=True)\n        descriptor_path\
+          \ = os.path.join(discovered_documents.path, DOCUMENTS_DESCRIPTOR_FILENAME)\n\
+          \        with open(descriptor_path, \"w\") as f:\n            yaml.safe_dump(descriptor,\
+          \ f, default_flow_style=False, sort_keys=False)\n\n        logger.info(\"\
+          Documents descriptor written to %s\", descriptor_path)\n\n    build_and_write_descriptor()\n\
+          \n"
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+    exec-test-data-loader:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - test_data_loader
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'boto3'  && \
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef test_data_loader(test_data_bucket_name: str, test_data_path:\
+          \ str, test_data: dsl.Output[dsl.Artifact] = None):\n    \"\"\"Download\
+          \ test data json file from S3 into a KFP artifact.\n\n    The component\
+          \ reads S3-compatible credentials from environment variables\n    (injected\
+          \ by the pipeline from a Kubernetes secret) and downloads a JSON\n    test\
+          \ data file from the provided bucket and path to the output artifact.\n\n\
+          \    Args:\n        test_data_bucket_name: S3 (or compatible) bucket that\
+          \ contains the test\n            data file.\n        test_data_path: S3\
+          \ object key to the JSON test data file.\n        test_data: Output artifact\
+          \ that receives the downloaded file.\n\n    Environment variables (required\
+          \ when run with pipeline secret injection):\n        AWS_ACCESS_KEY_ID,\
+          \ AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION.\n\n    Raises:\n\
+          \        ValueError: If S3 credentials are missing or misconfigured.\n \
+          \       Exception: If the download fails or the path is not a JSON file.\n\
+          \    \"\"\"\n    import logging\n    import os\n    import sys\n\n    import\
+          \ boto3\n    from botocore.exceptions import ClientError\n\n    logger =\
+          \ logging.getLogger(\"Test Data Loader component logger\")\n    logger.setLevel(logging.INFO)\n\
+          \    if not logger.handlers:\n        handler = logging.StreamHandler(sys.stdout)\n\
+          \        logger.addHandler(handler)\n\n    def get_test_data_s3():\n   \
+          \     \"\"\"Validate S3 credentials and download the JSON test data file.\"\
+          \"\"\n        s3_creds = {\n            k: os.environ.get(k)\n         \
+          \   for k in [\"AWS_ACCESS_KEY_ID\", \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\"\
+          , \"AWS_DEFAULT_REGION\"]\n        }\n        for k, v in s3_creds.items():\n\
+          \            if v is None:\n                raise ValueError(\n        \
+          \            \"%s environment variable not set. Check if kubernetes secret\
+          \ was configured properly\" % k\n                )\n\n        s3_client\
+          \ = boto3.client(\n            \"s3\",\n            endpoint_url=s3_creds[\"\
+          AWS_S3_ENDPOINT\"],\n            region_name=s3_creds[\"AWS_DEFAULT_REGION\"\
+          ],\n            aws_access_key_id=s3_creds[\"AWS_ACCESS_KEY_ID\"],\n   \
+          \         aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"],\n \
+          \       )\n\n        if test_data_path.endswith(\".json\"):\n          \
+          \  logger.info(f\"Fetching test data from S3: bucket={test_data_bucket_name},\
+          \ path={test_data_path}\")\n            try:\n                logger.info(f\"\
+          Starting download to {test_data.path}\")\n                s3_client.download_file(test_data_bucket_name,\
+          \ test_data_path, test_data.path)\n                logger.info(\"Download\
+          \ completed successfully\")\n            except ClientError as e:\n    \
+          \            if e.response.get(\"Error\", {}).get(\"Code\") in (\"404\"\
+          , \"NoSuchKey\"):\n                    raise FileNotFoundError(\n      \
+          \                  \"Test data object not found in S3. bucket=%r, key=%r.\
+          \ \"\n                        \"Check that test_data_key (pipeline parameter)\
+          \ is the full object key to an existing JSON file.\"\n                 \
+          \       % (test_data_bucket_name, test_data_path)\n                    )\
+          \ from e\n                logger.error(\"Failed to fetch %s: %s\", test_data_path,\
+          \ e)\n                raise\n            except Exception as e:\n      \
+          \          logger.error(\"Failed to fetch %s: %s\", test_data_path, e)\n\
+          \                raise\n        else:\n            logger.error(\"Test data\
+          \ must be a json file: %s\", test_data_path)\n            raise\n\n    get_test_data_s3()\n\
+          \n"
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+    exec-text-extraction:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - text_extraction
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'docling[ort]'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef text_extraction(\n    documents_descriptor: dsl.Input[dsl.Artifact],\n\
+          \    extracted_text: dsl.Output[dsl.Artifact],\n):\n    \"\"\"Text Extraction\
+          \ component.\n\n    Reads the documents_descriptor YAML (from documents_discovery),\
+          \ fetches\n    the listed documents from S3, and extracts text using the\
+          \ docling library.\n\n    Args:\n        documents_descriptor: Input artifact\
+          \ containing\n            documents_descriptor.yaml with bucket, prefix,\
+          \ and documents list.\n        extracted_text: Output artifact where the\
+          \ extracted text content will be stored.\n    \"\"\"\n    import logging\n\
+          \    import os\n    import sys\n    import tempfile\n    from concurrent.futures\
+          \ import ThreadPoolExecutor\n    from functools import partial\n    from\
+          \ pathlib import Path\n\n    import boto3\n    import yaml\n    from docling.datamodel.accelerator_options\
+          \ import AcceleratorOptions\n    from docling.datamodel.base_models import\
+          \ InputFormat\n    from docling.datamodel.pipeline_options import PdfPipelineOptions\n\
+          \    from docling.document_converter import DocumentConverter, PdfFormatOption\n\
+          \n    DOCUMENTS_DESCRIPTOR_FILENAME = \"documents_descriptor.yaml\"\n  \
+          \  SUPPORTED_EXTENSIONS = {\".pdf\", \".docx\", \".pptx\", \".md\", \".html\"\
+          , \".txt\"}\n    DOWNLOAD_MAX_WORKERS = 8\n    BATCH_SIZE = 10\n\n    logger\
+          \ = logging.getLogger(\"Text Extraction component logger\")\n    logger.setLevel(logging.INFO)\n\
+          \    if not logger.handlers:\n        handler = logging.StreamHandler(sys.stdout)\n\
+          \        logger.addHandler(handler)\n\n    descriptor_root = Path(documents_descriptor.path)\n\
+          \    if descriptor_root.is_dir():\n        descriptor_path = descriptor_root\
+          \ / DOCUMENTS_DESCRIPTOR_FILENAME\n    else:\n        descriptor_path =\
+          \ descriptor_root\n\n    if not descriptor_path.exists():\n        raise\
+          \ FileNotFoundError(f\"Descriptor not found: {descriptor_path}\")\n\n  \
+          \  with open(descriptor_path) as f:\n        descriptor = yaml.safe_load(f)\n\
+          \n    bucket = descriptor[\"bucket\"]\n    documents = descriptor[\"documents\"\
+          ]\n\n    s3_creds = {k: os.environ.get(k) for k in [\"AWS_ACCESS_KEY_ID\"\
+          , \"AWS_SECRET_ACCESS_KEY\", \"AWS_S3_ENDPOINT\"]}\n    for k, v in s3_creds.items():\n\
+          \        if v is None:\n            raise ValueError(f\"{k} environment\
+          \ variable not set. Check if kubernetes secret was configured properly.\"\
+          )\n\n    s3_creds[\"AWS_DEFAULT_REGION\"] = os.environ.get(\"AWS_DEFAULT_REGION\"\
+          , \"\")\n\n    session = boto3.session.Session(\n        aws_access_key_id=s3_creds[\"\
+          AWS_ACCESS_KEY_ID\"],\n        aws_secret_access_key=s3_creds[\"AWS_SECRET_ACCESS_KEY\"\
+          ],\n        region_name=s3_creds.get(\"AWS_DEFAULT_REGION\"),\n    )\n \
+          \   s3_client = session.client(\n        service_name=\"s3\",\n        endpoint_url=s3_creds[\"\
+          AWS_S3_ENDPOINT\"],\n    )\n\n    def download_document(doc: dict, base_path:\
+          \ Path) -> bool:\n        key = doc[\"key\"]\n        local_path = base_path\
+          \ / key\n        local_path.parent.mkdir(parents=True, exist_ok=True)\n\
+          \        try:\n            logger.info(\"Downloading %s\", key)\n      \
+          \      s3_client.download_file(bucket, key, str(local_path))\n         \
+          \   return True\n        except Exception as e:\n            logger.error(\"\
+          Failed to fetch %s: %s\", key, e)\n            raise\n\n    def process_document(file_path_str:\
+          \ str, output_dir_str: str) -> bool:\n        try:\n            path = Path(file_path_str)\n\
+          \            out_dir = Path(output_dir_str)\n            pipeline_options\
+          \ = PdfPipelineOptions()\n            pipeline_options.do_ocr = False\n\
+          \            pipeline_options.do_table_structure = False\n            pipeline_options.accelerator_options\
+          \ = AcceleratorOptions(device=\"cpu\", num_threads=1)\n            converter\
+          \ = DocumentConverter(\n                format_options={InputFormat.PDF:\
+          \ PdfFormatOption(pipeline_options=pipeline_options)}\n            )\n \
+          \           result = converter.convert(path)\n            markdown_content\
+          \ = result.document.export_to_markdown()\n            output_file = out_dir\
+          \ / f\"{path.name}.md\"\n            output_file.write_text(markdown_content,\
+          \ encoding=\"utf-8\")\n            return True\n        except Exception\
+          \ as e:\n            logger.error(\"Failed to process %s: %s\", file_path_str,\
+          \ e)\n            return False\n\n    output_dir = Path(extracted_text.path)\n\
+          \    output_dir.mkdir(parents=True, exist_ok=True)\n\n    all_results =\
+          \ []\n    batches = [documents[i : i + BATCH_SIZE] for i in range(0, len(documents),\
+          \ BATCH_SIZE)] if documents else []\n\n    logger.info(\"Starting text extraction\
+          \ for %d documents in %d batch(es).\", len(documents), len(batches))\n\n\
+          \    for batch_idx, batch_docs in enumerate(batches):\n        logger.info(\"\
+          Processing batch %d/%d (%d documents).\", batch_idx + 1, len(batches), len(batch_docs))\n\
+          \n        with tempfile.TemporaryDirectory() as download_dir:\n        \
+          \    batch_download_path = Path(download_dir)\n            download_workers\
+          \ = min(DOWNLOAD_MAX_WORKERS, len(batch_docs))\n            download_fn\
+          \ = partial(download_document, base_path=batch_download_path)\n        \
+          \    with ThreadPoolExecutor(max_workers=download_workers) as executor:\n\
+          \                list(executor.map(download_fn, batch_docs))\n\n       \
+          \     files_to_process = [\n                f for f in batch_download_path.rglob(\"\
+          *\") if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS\n     \
+          \       ]\n\n            if not files_to_process:\n                continue\n\
+          \n            process_workers = min(os.cpu_count() or 1, len(files_to_process))\n\
+          \            worker_fn = partial(process_document, output_dir_str=str(output_dir))\n\
+          \            with ThreadPoolExecutor(max_workers=process_workers) as executor:\n\
+          \                batch_results = list(executor.map(worker_fn, [str(f) for\
+          \ f in files_to_process]))\n            all_results.extend(batch_results)\n\
+          \n    results = all_results\n    processed_count = sum(1 for r in results\
+          \ if r)\n    error_count = len(results) - processed_count\n\n    summary\
+          \ = f\"Text extraction completed. Total processed: {processed_count}, Errors:\
+          \ {error_count}.\"\n    logger.info(summary)\n\n"
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+pipelineInfo:
+  description: Pipeline to load test data and documents for AutoRAG.
+  name: autorag-data-processing-pipeline
+root:
+  dag:
+    tasks:
+      documents-discovery:
+        cachingOptions: {}
+        componentRef:
+          name: comp-documents-discovery
+        dependentTasks:
+        - test-data-loader
+        inputs:
+          artifacts:
+            test_data:
+              taskOutputArtifact:
+                outputArtifactKey: test_data
+                producerTask: test-data-loader
+          parameters:
+            input_data_bucket_name:
+              componentInputParameter: input_data_bucket_name
+            input_data_path:
+              componentInputParameter: input_data_key
+            sampling_enabled:
+              componentInputParameter: sampling_enabled
+            sampling_max_size:
+              componentInputParameter: sampling_max_size
+        taskInfo:
+          name: documents-discovery
+      test-data-loader:
+        cachingOptions: {}
+        componentRef:
+          name: comp-test-data-loader
+        inputs:
+          parameters:
+            test_data_bucket_name:
+              componentInputParameter: test_data_bucket_name
+            test_data_path:
+              componentInputParameter: test_data_key
+        taskInfo:
+          name: test-data-loader
+      text-extraction:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-text-extraction
+        dependentTasks:
+        - documents-discovery
+        inputs:
+          artifacts:
+            documents_descriptor:
+              taskOutputArtifact:
+                outputArtifactKey: discovered_documents
+                producerTask: documents-discovery
+        taskInfo:
+          name: text-extraction
+  inputDefinitions:
+    parameters:
+      input_data_bucket_name:
+        parameterType: STRING
+      input_data_key:
+        parameterType: STRING
+      input_data_secret_name:
+        parameterType: STRING
+      sampling_enabled:
+        defaultValue: false
+        isOptional: true
+        parameterType: BOOLEAN
+      sampling_max_size:
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      test_data_bucket_name:
+        isOptional: true
+        parameterType: STRING
+      test_data_key:
+        isOptional: true
+        parameterType: STRING
+      test_data_secret_name:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.15.2
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-documents-discovery:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: AWS_ACCESS_KEY_ID
+              secretKey: AWS_ACCESS_KEY_ID
+            - envVar: AWS_SECRET_ACCESS_KEY
+              secretKey: AWS_SECRET_ACCESS_KEY
+            - envVar: AWS_S3_ENDPOINT
+              secretKey: AWS_S3_ENDPOINT
+            - envVar: AWS_DEFAULT_REGION
+              secretKey: AWS_DEFAULT_REGION
+            optional: false
+            secretNameParameter:
+              componentInputParameter: input_data_secret_name
+        exec-test-data-loader:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: AWS_ACCESS_KEY_ID
+              secretKey: AWS_ACCESS_KEY_ID
+            - envVar: AWS_SECRET_ACCESS_KEY
+              secretKey: AWS_SECRET_ACCESS_KEY
+            - envVar: AWS_S3_ENDPOINT
+              secretKey: AWS_S3_ENDPOINT
+            - envVar: AWS_DEFAULT_REGION
+              secretKey: AWS_DEFAULT_REGION
+            optional: false
+            secretNameParameter:
+              componentInputParameter: test_data_secret_name
+        exec-text-extraction:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: AWS_ACCESS_KEY_ID
+              secretKey: AWS_ACCESS_KEY_ID
+            - envVar: AWS_SECRET_ACCESS_KEY
+              secretKey: AWS_SECRET_ACCESS_KEY
+            - envVar: AWS_S3_ENDPOINT
+              secretKey: AWS_S3_ENDPOINT
+            - envVar: AWS_DEFAULT_REGION
+              secretKey: AWS_DEFAULT_REGION
+            optional: false
+            secretNameParameter:
+              componentInputParameter: input_data_secret_name

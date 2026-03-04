@@ -66,7 +66,7 @@ def data_processing_pipeline(
     test_data_loader_task.set_caching_options(enable_caching=False)
 
     text_extraction_task = text_extraction(
-        sampled_documents_descriptor=documents_discovery_task.outputs["discovered_documents"],
+        documents_descriptor=documents_discovery_task.outputs["discovered_documents"],
     )
 
     for task, secret_name in zip(
@@ -90,6 +90,6 @@ if __name__ == "__main__":
 
     from kfp.compiler import Compiler
 
-    output_path = pathlib.Path(__file__).with_name("data_loading_pipeline.yaml")
+    output_path = pathlib.Path(__file__).with_name("data_processing_pipeline.yaml")
     Compiler().compile(pipeline_func=data_processing_pipeline, package_path=str(output_path))
     print(f"Pipeline compiled to {output_path}")
