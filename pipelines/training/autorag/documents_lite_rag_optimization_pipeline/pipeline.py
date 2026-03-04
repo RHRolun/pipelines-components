@@ -63,10 +63,6 @@ def documents_lite_rag_optimization_pipeline(
             "faithfulness", "answer_correctness", "context_correctness". Defaults to "faithfulness".
         optimization_max_rag_patterns: Maximum number of RAG patterns to generate. Passed to ai4rag
             (max_number_of_rag_patterns). Defaults to 8.
-        embeddings_models: Optional list of embedding model IDs for the search space. If not set,
-            defaults to a single model so the pipeline runs without manual model discovery.
-        generation_models: Optional list of foundation/generation model IDs for the search space.
-            If not set, defaults to a single model so the pipeline runs without manual model discovery.
     """
     test_data_loader_task = test_data_loader(
         test_data_bucket_name=test_data_bucket_name,
