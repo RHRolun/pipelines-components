@@ -173,7 +173,7 @@ def rag_templates_optimization(
             case {"type_": "generation", **id_to_params}:
                 model_id, params = id_to_params.popitem()
                 if in_memory_vector_store_scenario:
-                    return OpenAIFoundationModel(client=client.embedding_model, model_id=model_id, params=params)
+                    return OpenAIFoundationModel(client=client.generation_model, model_id=model_id, params=params)
                 else:
                     return LSFoundationModel(client=client.llama_stack, model_id=model_id, params=params)
             case _:
@@ -196,41 +196,9 @@ def rag_templates_optimization(
     with open(search_space_prep_report, "r") as f:
         search_space = yml.safe_load(f)
 
-    if in_memory_vector_store_scenario:
-        params = []
-        for param, values in search_space.items():
-            if param == "foundation_model":
-                params.append(
-                    Parameter(
-                        "foundation_model",
-                        "C",
-                        values=[
-                            OpenAIFoundationModel(client=client.generation_model, model_id=fm.model_id) for fm in values
-                        ],
-                    )
-                )
-            elif param == "embedding_model":
-                params.append(
-                    Parameter(
-                        "embedding_model",
-                        "C",
-                        values=[
-                            OpenAIEmbeddingModel(
-                                client=client.embedding_model,
-                                model_id=em.model_id,
-                                params={"embedding_dimension": 768, "context_length": 512},
-                            )
-                            for em in values
-                        ],
-                    )
-                )
-            else:
-                params.append(Parameter(param, "C", values=values))
-        search_space = AI4RAGSearchSpace(params=params)
-    else:
-        search_space = AI4RAGSearchSpace(
-            params=[Parameter(param, "C", values=values) for param, values in search_space.items()]
-        )
+    search_space = AI4RAGSearchSpace(
+        params=[Parameter(param, "C", values=values) for param, values in search_space.items()]
+    )
 
     event_handler = TmpEventHandler()
     max_rag_patterns = optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
