@@ -27,6 +27,7 @@ def documents_rag_optimization_pipeline(
     embeddings_models: Optional[List] = None,
     generation_models: Optional[List] = None,
     optimization_metric: str = "faithfulness",
+    optimization_max_rag_patterns: int = 8,
     llama_stack_vector_database_id: Optional[str] = None,
 ):
     """Automated system for building and optimizing Retrieval-Augmented Generation (RAG) applications.
@@ -59,6 +60,8 @@ def documents_rag_optimization_pipeline(
             search space.
         optimization_metric: Quality metric used to optimize RAG patterns. Supported values:
             "faithfulness", "answer_correctness", "context_correctness".
+        optimization_max_rag_patterns: Maximum number of RAG patterns to generate. Passed to ai4rag
+            (max_number_of_rag_patterns). Defaults to 8.
         llama_stack_vector_database_id: Optional vector database id (e.g., registered in llama-stack Milvus).
             If not provided, an in-memory database may be used.
     """
@@ -104,7 +107,10 @@ def documents_rag_optimization_pipeline(
         test_data=test_data_loader_task.outputs["test_data"],
         search_space_prep_report=mps_task.outputs["search_space_prep_report"],
         llama_stack_vector_database_id=llama_stack_vector_database_id or "ls_milvus",
-        optimization_settings={"metric": optimization_metric},
+        optimization_settings={
+            "metric": optimization_metric,
+            "max_number_of_rag_patterns": optimization_max_rag_patterns,
+        },
     )
 
     use_secret_as_env(

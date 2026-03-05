@@ -234,7 +234,7 @@ Pipeline outputs are written to the artifact store (S3-compatible storage config
 └── <run_id>/
     ├── documents-sampling/
     │   └── <task_id>/
-    │       └── sampled_documents_atrifact        # YAML artifact containing sampled documents metadata
+    │       └── sampled_documents_atrifact        # JSON artifact containing sampled documents metadata
     ├── text-extraction/
     │   └── <task_id>/
     │       └── extracted_text_artifact           # Folder containing markdown files with extracted text

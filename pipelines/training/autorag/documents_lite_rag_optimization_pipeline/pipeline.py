@@ -30,6 +30,7 @@ def documents_lite_rag_optimization_pipeline(
     embedding_model_url: str,
     embedding_model_token: str,
     optimization_metric: str = "faithfulness",
+    optimization_max_rag_patterns: int = 8,
 ):
     """Automated system for building and optimizing Retrieval-Augmented Generation (RAG) applications.
 
@@ -60,10 +61,8 @@ def documents_lite_rag_optimization_pipeline(
         embedding_model_token: API token or key for authenticating with the embedding model endpoint.
         optimization_metric: Quality metric used to optimize RAG patterns. Supported values:
             "faithfulness", "answer_correctness", "context_correctness". Defaults to "faithfulness".
-        embeddings_models: Optional list of embedding model IDs for the search space. If not set,
-            defaults to a single model so the pipeline runs without manual model discovery.
-        generation_models: Optional list of foundation/generation model IDs for the search space.
-            If not set, defaults to a single model so the pipeline runs without manual model discovery.
+        optimization_max_rag_patterns: Maximum number of RAG patterns to generate. Passed to ai4rag
+            (max_number_of_rag_patterns). Defaults to 8.
     """
     test_data_loader_task = test_data_loader(
         test_data_bucket_name=test_data_bucket_name,
@@ -112,7 +111,10 @@ def documents_lite_rag_optimization_pipeline(
         chat_model_token=chat_model_token,
         embedding_model_url=embedding_model_url,
         embedding_model_token=embedding_model_token,
-        optimization_settings={"metric": optimization_metric},
+        optimization_settings={
+            "metric": optimization_metric,
+            "max_number_of_rag_patterns": optimization_max_rag_patterns,
+        },
     )
 
     leaderboard_evaluation(
