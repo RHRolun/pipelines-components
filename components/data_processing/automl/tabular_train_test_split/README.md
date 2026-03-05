@@ -12,16 +12,21 @@ The Train Test Split component takes a single CSV dataset and splits it into tra
 writes the train and test CSVs to the output artifacts and returns a sample row (from the test set) and the split
 configuration.
 
+By default, the split configuration uses: - `test_size`: 0.3 (30% of data for testing) - `random_state`: 42 (for
+reproducibility) - `stratify`: True for "binary" and "multiclass" tasks, otherwise None
+
+You can override these by providing the `split_config` dictionary with the corresponding keys.
+
 ## Inputs 📥
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `dataset` | `dsl.Input[dsl.Dataset]` | `None` | Input CSV dataset to split. |
-| `task_type` | `str` | `None` | Machine learning task type: "binary", "multiclass", or "regression". |
 | `label_column` | `str` | `None` | Name of the label/target column. |
-| `split_config` | `dict` | `None` | Split configuration dictionary. Available keys: "test_size" (float), "random_state" (int), "stratify" (bool). |
 | `sampled_train_dataset` | `dsl.Output[dsl.Dataset]` | `None` | Output dataset artifact for the train split. |
 | `sampled_test_dataset` | `dsl.Output[dsl.Dataset]` | `None` | Output dataset artifact for the test split. |
+| `split_config` | `Optional[dict]` | `None` | Split configuration dictionary. Available keys: "test_size" (float), "random_state" (int), "stratify" (bool). |
+| `task_type` | `str` | `regression` | Machine learning task type: "binary", "multiclass", or "regression" (default). |
 
 ## Outputs 📤
 

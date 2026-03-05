@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 from kfp import dsl
 
@@ -18,13 +18,13 @@ def autogluon_models_full_refit(
     model_name: str,
     test_dataset: dsl.Input[dsl.Dataset],
     predictor_path: str,
-    sampling_config: dict,
-    split_config: dict,
-    model_config: dict,
     pipeline_name: str,
     run_id: str,
     sample_row: str,
     model_artifact: dsl.Output[dsl.Model],
+    sampling_config: Optional[dict] = None,
+    split_config: Optional[dict] = None,
+    model_config: Optional[dict] = None,
 ) -> NamedTuple("outputs", model_name=str):
     """Refit a specific AutoGluon model on the full training dataset.
 
@@ -105,6 +105,10 @@ def autogluon_models_full_refit(
 
     import pandas as pd
     from autogluon.tabular import TabularPredictor
+
+    sampling_config = sampling_config or {}
+    split_config = split_config or {}
+    model_config = model_config or {}
 
     test_dataset_df = pd.read_csv(test_dataset.path)
 

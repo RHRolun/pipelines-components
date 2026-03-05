@@ -1,4 +1,4 @@
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, Optional
 
 from kfp import dsl
 
@@ -8,11 +8,11 @@ from kfp import dsl
 )
 def tabular_train_test_split(  # noqa: D417
     dataset: dsl.Input[dsl.Dataset],
-    task_type: str,
     label_column: str,
-    split_config: dict,
     sampled_train_dataset: dsl.Output[dsl.Dataset],
     sampled_test_dataset: dsl.Output[dsl.Dataset],
+    split_config: Optional[dict] = None,
+    task_type: str = "regression",
 ) -> NamedTuple("outputs", sample_row=str, split_config=dict):
     """Splits a tabular (CSV) dataset into train and test sets for AutoML workflows.
 
@@ -20,9 +20,16 @@ def tabular_train_test_split(  # noqa: D417
     For **regression** tasks the split is random; for **binary** and **multiclass** tasks the split is **stratified** by the label column by default, so that class proportions are preserved in both splits.
     The component writes the train and test CSVs to the output artifacts and returns a sample row (from the test set) and the split configuration.
 
+    By default, the split configuration uses:
+      - `test_size`: 0.3 (30% of data for testing)
+      - `random_state`: 42 (for reproducibility)
+      - `stratify`: True for "binary" and "multiclass" tasks, otherwise None
+
+    You can override these by providing the `split_config` dictionary with the corresponding keys.
+
     Args:
         dataset: Input CSV dataset to split.
-        task_type: Machine learning task type: "binary", "multiclass", or "regression".
+        task_type: Machine learning task type: "binary", "multiclass", or "regression" (default).
         label_column: Name of the label/target column.
         split_config: Split configuration dictionary. Available keys: "test_size" (float), "random_state" (int), "stratify" (bool).
         sampled_train_dataset: Output dataset artifact for the train split.
@@ -43,6 +50,7 @@ def tabular_train_test_split(  # noqa: D417
     DEFAULT_RANDOM_STATE = 42
     DEFAULT_TEST_SIZE = 0.3
 
+    split_config = split_config or {}
     test_size = split_config.get("test_size", DEFAULT_TEST_SIZE)
     random_state = split_config.get("random_state", DEFAULT_RANDOM_STATE)
 

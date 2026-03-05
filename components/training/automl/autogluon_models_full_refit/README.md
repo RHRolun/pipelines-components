@@ -34,13 +34,13 @@ exploration, then the best candidates are refitted on the full dataset for optim
 | `model_name` | `str` | `None` | Name of the model to refit (must exist in predictor); refitted model saved with "_FULL" suffix. |
 | `test_dataset` | `dsl.Input[dsl.Dataset]` | `None` | Dataset artifact (CSV) for evaluation and metrics; format should match initial training data. |
 | `predictor_path` | `str` | `None` | Path to the trained TabularPredictor containing model_name. |
-| `sampling_config` | `dict` | `None` | Data sampling config (stored in artifact metadata). |
-| `split_config` | `dict` | `None` | Data split config (stored in artifact metadata). |
-| `model_config` | `dict` | `None` | Model training config (stored in artifact metadata). |
 | `pipeline_name` | `str` | `None` | Pipeline run name; last hyphen-separated segment used in the generated notebook. |
 | `run_id` | `str` | `None` | Pipeline run ID (used in the generated notebook). |
 | `sample_row` | `str` | `None` | JSON list of row objects for example input in the notebook; label column is stripped. |
 | `model_artifact` | `dsl.Output[dsl.Model]` | `None` | Output Model; artifacts under model_artifact.path/<model_name>_FULL (predictor/, metrics/, notebooks/). |
+| `sampling_config` | `Optional[dict]` | `None` | Data sampling config (stored in artifact metadata). |
+| `split_config` | `Optional[dict]` | `None` | Data split config (stored in artifact metadata). |
+| `model_config` | `Optional[dict]` | `None` | Model training config (stored in artifact metadata). |
 
 ## Outputs 📤
 

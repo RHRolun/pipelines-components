@@ -29,6 +29,7 @@ components:
       parameters:
         model_config:
           description: Model training config (stored in artifact metadata).
+          isOptional: true
           parameterType: STRUCT
         model_name:
           description: Name of the model to refit (must exist in predictor); refitted
@@ -50,9 +51,11 @@ components:
           parameterType: STRING
         sampling_config:
           description: Data sampling config (stored in artifact metadata).
+          isOptional: true
           parameterType: STRUCT
         split_config:
           description: Data split config (stored in artifact metadata).
+          isOptional: true
           parameterType: STRUCT
     outputDefinitions:
       artifacts:
@@ -246,9 +249,13 @@ components:
         split_config:
           description: 'Split configuration dictionary. Available keys: "test_size"
             (float), "random_state" (int), "stratify" (bool).'
+          isOptional: true
           parameterType: STRUCT
         task_type:
-          description: 'Machine learning task type: "binary", "multiclass", or "regression".'
+          defaultValue: regression
+          description: 'Machine learning task type: "binary", "multiclass", or "regression"
+            (default).'
+          isOptional: true
           parameterType: STRING
     outputDefinitions:
       artifacts:
@@ -296,18 +303,19 @@ deploymentSpec:
           '
           - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef autogluon_models_full_refit(\n    model_name: str,\n    test_dataset:\
-          \ dsl.Input[dsl.Dataset],\n    predictor_path: str,\n    sampling_config:\
-          \ dict,\n    split_config: dict,\n    model_config: dict,\n    pipeline_name:\
+          \ dsl.Input[dsl.Dataset],\n    predictor_path: str,\n    pipeline_name:\
           \ str,\n    run_id: str,\n    sample_row: str,\n    model_artifact: dsl.Output[dsl.Model],\n\
-          ) -> NamedTuple(\"outputs\", model_name=str):\n    \"\"\"Refit a specific\
-          \ AutoGluon model on the full training dataset.\n\n    This component takes\
-          \ a trained AutoGluon TabularPredictor, loaded from\n    predictor_path,\
-          \ and refits a specific model, identified by model_name, on\n    the full\
-          \ training data. By default AutoGluon refit_full uses the\n    predictor's\
-          \ training and validation data; the test_dataset is used for\n    evaluation\
-          \ and for writing metrics. The refitted model is saved with the\n    suffix\
-          \ \"_FULL\" appended to model_name.\n\n    Artifacts are written under model_artifact.path\
-          \ in a directory named\n    <model_name>_FULL (e.g. LightGBM_BAG_L1_FULL).\
+          \    sampling_config: Optional[dict] = None,\n    split_config: Optional[dict]\
+          \ = None,\n    model_config: Optional[dict] = None,\n) -> NamedTuple(\"\
+          outputs\", model_name=str):\n    \"\"\"Refit a specific AutoGluon model\
+          \ on the full training dataset.\n\n    This component takes a trained AutoGluon\
+          \ TabularPredictor, loaded from\n    predictor_path, and refits a specific\
+          \ model, identified by model_name, on\n    the full training data. By default\
+          \ AutoGluon refit_full uses the\n    predictor's training and validation\
+          \ data; the test_dataset is used for\n    evaluation and for writing metrics.\
+          \ The refitted model is saved with the\n    suffix \"_FULL\" appended to\
+          \ model_name.\n\n    Artifacts are written under model_artifact.path in\
+          \ a directory named\n    <model_name>_FULL (e.g. LightGBM_BAG_L1_FULL).\
           \ The layout is:\n\n    - model_artifact.path / <model_name>_FULL / predictor\
           \ /\n      TabularPredictor (predictor.pkl inside); clone with only the\
           \ refitted model.\n    - model_artifact.path / <model_name>_FULL / metrics\
@@ -354,19 +362,21 @@ deploymentSpec:
           \            return refitted.model_name\n\n    \"\"\"  # noqa: E501\n  \
           \  import json\n    import os\n    from pathlib import Path\n\n    import\
           \ pandas as pd\n    from autogluon.tabular import TabularPredictor\n\n \
-          \   test_dataset_df = pd.read_csv(test_dataset.path)\n\n    predictor =\
-          \ TabularPredictor.load(predictor_path)\n\n    # save refitted model to\
-          \ output artifact\n    model_name_full = model_name + \"_FULL\"\n    output_path\
-          \ = Path(model_artifact.path) / model_name_full\n\n    # set the name of\
-          \ the model artifact and its metadata\n    model_artifact.metadata[\"display_name\"\
-          ] = model_name_full\n    model_artifact.metadata[\"context\"] = {}\n   \
-          \ model_artifact.metadata[\"context\"][\"data_config\"] = {\n        \"\
-          sampling_config\": sampling_config,\n        \"split_config\": split_config,\n\
-          \    }\n\n    model_artifact.metadata[\"context\"][\"task_type\"] = predictor.problem_type\n\
-          \    model_artifact.metadata[\"context\"][\"label_column\"] = predictor.label\n\
-          \n    model_artifact.metadata[\"context\"][\"model_config\"] = model_config\n\
-          \    model_artifact.metadata[\"context\"][\"location\"] = {\n        \"\
-          model_directory\": f\"{model_name_full}\",\n        \"predictor\": f\"{model_name_full}/predictor/predictor.pkl\"\
+          \   sampling_config = sampling_config or {}\n    split_config = split_config\
+          \ or {}\n    model_config = model_config or {}\n\n    test_dataset_df =\
+          \ pd.read_csv(test_dataset.path)\n\n    predictor = TabularPredictor.load(predictor_path)\n\
+          \n    # save refitted model to output artifact\n    model_name_full = model_name\
+          \ + \"_FULL\"\n    output_path = Path(model_artifact.path) / model_name_full\n\
+          \n    # set the name of the model artifact and its metadata\n    model_artifact.metadata[\"\
+          display_name\"] = model_name_full\n    model_artifact.metadata[\"context\"\
+          ] = {}\n    model_artifact.metadata[\"context\"][\"data_config\"] = {\n\
+          \        \"sampling_config\": sampling_config,\n        \"split_config\"\
+          : split_config,\n    }\n\n    model_artifact.metadata[\"context\"][\"task_type\"\
+          ] = predictor.problem_type\n    model_artifact.metadata[\"context\"][\"\
+          label_column\"] = predictor.label\n\n    model_artifact.metadata[\"context\"\
+          ][\"model_config\"] = model_config\n    model_artifact.metadata[\"context\"\
+          ][\"location\"] = {\n        \"model_directory\": f\"{model_name_full}\"\
+          ,\n        \"predictor\": f\"{model_name_full}/predictor/predictor.pkl\"\
           ,\n    }\n\n    # clone the predictor to the output artifact path and delete\
           \ unnecessary models\n    predictor_clone = predictor.clone(path=output_path\
           \ / \"predictor\", return_clone=True, dirs_exist_ok=True)\n    predictor_clone.delete_models(models_to_keep=[model_name])\n\
@@ -630,7 +640,7 @@ deploymentSpec:
           \  \"id\": \"fa7f736d-0b5c-4988-87a5-4d1a5cde0873\",\n                \"\
           metadata\": {},\n                \"outputs\": [],\n                \"source\"\
           : [\n                    'pipeline_name = \"<PIPELINE_NAME>\"\\n',\n   \
-          \                 'run_id = \"<RUN_ID>\"\\n',\n                    'model_name\
+          \                 'run_id =  \"<RUN_ID>\"\\n',\n                    'model_name\
           \ = \"<MODEL_NAME>\"',\n                ],\n            },\n           \
           \ {\n                \"cell_type\": \"markdown\",\n                \"id\"\
           : \"54525a94-7799-41cc-822e-91bae88b3b78\",\n                \"metadata\"\
@@ -1187,50 +1197,55 @@ deploymentSpec:
           '
           - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef tabular_train_test_split(  # noqa: D417\n    dataset: dsl.Input[dsl.Dataset],\n\
-          \    task_type: str,\n    label_column: str,\n    split_config: dict,\n\
-          \    sampled_train_dataset: dsl.Output[dsl.Dataset],\n    sampled_test_dataset:\
-          \ dsl.Output[dsl.Dataset],\n) -> NamedTuple(\"outputs\", sample_row=str,\
-          \ split_config=dict):\n    \"\"\"Splits a tabular (CSV) dataset into train\
-          \ and test sets for AutoML workflows.\n\n    The Train Test Split component\
-          \ takes a single CSV dataset and splits it into training and test sets using\
-          \ scikit-learn's `train_test_split`.\n    For **regression** tasks the split\
-          \ is random; for **binary** and **multiclass** tasks the split is **stratified**\
-          \ by the label column by default, so that class proportions are preserved\
-          \ in both splits.\n    The component writes the train and test CSVs to the\
-          \ output artifacts and returns a sample row (from the test set) and the\
-          \ split configuration.\n\n    Args:\n        dataset: Input CSV dataset\
-          \ to split.\n        task_type: Machine learning task type: \"binary\",\
-          \ \"multiclass\", or \"regression\".\n        label_column: Name of the\
-          \ label/target column.\n        split_config: Split configuration dictionary.\
-          \ Available keys: \"test_size\" (float), \"random_state\" (int), \"stratify\"\
-          \ (bool).\n        sampled_train_dataset: Output dataset artifact for the\
-          \ train split.\n        sampled_test_dataset: Output dataset artifact for\
-          \ the test split.\n\n    Raises:\n        ValueError: If the task_type is\
-          \ not one of \"binary\", \"multiclass\", or \"regression\".\n\n    Returns:\n\
-          \        NamedTuple: Contains a sample row and a split configuration dictionary.\n\
-          \    \"\"\"  # noqa: E501\n    if task_type not in {\"multiclass\", \"binary\"\
-          , \"regression\"}:\n        raise ValueError(f\"Invalid task_type: '{task_type}'.\
+          \    label_column: str,\n    sampled_train_dataset: dsl.Output[dsl.Dataset],\n\
+          \    sampled_test_dataset: dsl.Output[dsl.Dataset],\n    split_config: Optional[dict]\
+          \ = None,\n    task_type: str = \"regression\",\n) -> NamedTuple(\"outputs\"\
+          , sample_row=str, split_config=dict):\n    \"\"\"Splits a tabular (CSV)\
+          \ dataset into train and test sets for AutoML workflows.\n\n    The Train\
+          \ Test Split component takes a single CSV dataset and splits it into training\
+          \ and test sets using scikit-learn's `train_test_split`.\n    For **regression**\
+          \ tasks the split is random; for **binary** and **multiclass** tasks the\
+          \ split is **stratified** by the label column by default, so that class\
+          \ proportions are preserved in both splits.\n    The component writes the\
+          \ train and test CSVs to the output artifacts and returns a sample row (from\
+          \ the test set) and the split configuration.\n\n    By default, the split\
+          \ configuration uses:\n      - `test_size`: 0.3 (30% of data for testing)\n\
+          \      - `random_state`: 42 (for reproducibility)\n      - `stratify`: True\
+          \ for \"binary\" and \"multiclass\" tasks, otherwise None\n\n    You can\
+          \ override these by providing the `split_config` dictionary with the corresponding\
+          \ keys.\n\n    Args:\n        dataset: Input CSV dataset to split.\n   \
+          \     task_type: Machine learning task type: \"binary\", \"multiclass\"\
+          , or \"regression\" (default).\n        label_column: Name of the label/target\
+          \ column.\n        split_config: Split configuration dictionary. Available\
+          \ keys: \"test_size\" (float), \"random_state\" (int), \"stratify\" (bool).\n\
+          \        sampled_train_dataset: Output dataset artifact for the train split.\n\
+          \        sampled_test_dataset: Output dataset artifact for the test split.\n\
+          \n    Raises:\n        ValueError: If the task_type is not one of \"binary\"\
+          , \"multiclass\", or \"regression\".\n\n    Returns:\n        NamedTuple:\
+          \ Contains a sample row and a split configuration dictionary.\n    \"\"\"\
+          \  # noqa: E501\n    if task_type not in {\"multiclass\", \"binary\", \"\
+          regression\"}:\n        raise ValueError(f\"Invalid task_type: '{task_type}'.\
           \ Must be one of: 'binary', 'multiclass', or 'regression'.\")\n    import\
           \ pandas as pd\n    from sklearn.model_selection import train_test_split\n\
           \n    # Set default values\n    DEFAULT_RANDOM_STATE = 42\n    DEFAULT_TEST_SIZE\
-          \ = 0.3\n\n    test_size = split_config.get(\"test_size\", DEFAULT_TEST_SIZE)\n\
-          \    random_state = split_config.get(\"random_state\", DEFAULT_RANDOM_STATE)\n\
-          \n    sampled_train_dataset.uri += \".csv\"\n    sampled_test_dataset.uri\
-          \ += \".csv\"\n\n    X = pd.read_csv(dataset.path)\n    # Features and target\n\
-          \    y = X[label_column]\n    X.drop(columns=[label_column], inplace=True)\n\
-          \n    # Split the data\n    X_train, X_test, y_train, y_test = train_test_split(\n\
-          \        X,\n        y,\n        test_size=test_size,\n        stratify=(y\
-          \ if task_type != \"regression\" and split_config.get(\"stratify\", True)\
-          \ else None),\n        random_state=random_state,\n    )\n\n    X_y_train\
-          \ = pd.concat([X_train, y_train], axis=1)\n    X_y_test = pd.concat([X_test,\
-          \ y_test], axis=1)\n    X_y_train.to_csv(sampled_train_dataset.path, index=False)\n\
-          \    X_y_test.to_csv(sampled_test_dataset.path, index=False)\n\n    # Dumps\
-          \ to json string to avoid NaN in the output json\n    # Format: '[{\"col1\"\
-          : \"val1\",\"col2\":\"val2\"},{\"col1\":\"val3\",\"col2\":\"val4\"}]'\n\
-          \    sample_row = X_y_test.head(1).to_json(orient=\"records\")\n    return\
-          \ NamedTuple(\"outputs\", sample_row=Dict, split_config=dict)(\n       \
-          \ sample_row=sample_row, split_config={\"test_size\": test_size}\n    )\n\
-          \n"
+          \ = 0.3\n\n    split_config = split_config or {}\n    test_size = split_config.get(\"\
+          test_size\", DEFAULT_TEST_SIZE)\n    random_state = split_config.get(\"\
+          random_state\", DEFAULT_RANDOM_STATE)\n\n    sampled_train_dataset.uri +=\
+          \ \".csv\"\n    sampled_test_dataset.uri += \".csv\"\n\n    X = pd.read_csv(dataset.path)\n\
+          \    # Features and target\n    y = X[label_column]\n    X.drop(columns=[label_column],\
+          \ inplace=True)\n\n    # Split the data\n    X_train, X_test, y_train, y_test\
+          \ = train_test_split(\n        X,\n        y,\n        test_size=test_size,\n\
+          \        stratify=(y if task_type != \"regression\" and split_config.get(\"\
+          stratify\", True) else None),\n        random_state=random_state,\n    )\n\
+          \n    X_y_train = pd.concat([X_train, y_train], axis=1)\n    X_y_test =\
+          \ pd.concat([X_test, y_test], axis=1)\n    X_y_train.to_csv(sampled_train_dataset.path,\
+          \ index=False)\n    X_y_test.to_csv(sampled_test_dataset.path, index=False)\n\
+          \n    # Dumps to json string to avoid NaN in the output json\n    # Format:\
+          \ '[{\"col1\": \"val1\",\"col2\":\"val2\"},{\"col1\":\"val3\",\"col2\":\"\
+          val4\"}]'\n    sample_row = X_y_test.head(1).to_json(orient=\"records\"\
+          )\n    return NamedTuple(\"outputs\", sample_row=Dict, split_config=dict)(\n\
+          \        sample_row=sample_row, split_config={\"test_size\": test_size}\n\
+          \    )\n\n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
 pipelineInfo:
   description: 'End-to-end AutoGluon tabular training pipeline implementing a two-stage
