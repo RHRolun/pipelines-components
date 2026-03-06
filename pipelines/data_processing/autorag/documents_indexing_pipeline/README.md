@@ -42,7 +42,6 @@ The component downloads documents from S3, set these environment variables (e.g.
 | `AWS_S3_ENDPOINT`         | Endpoint URL of the S3 instance.     |
 | `AWS_DEFAULT_REGION`      | Region of the S3 instance.           |
 
-
 ### Llama Stack credentials
 
 The component uses Llama Stack for embedding and vector store. Set these environment variables (e.g. via a Kubernetes secret) when running the component:
