@@ -4,7 +4,8 @@
 
 ## Overview
 
-Reads markdown files from the **extracted_text** artifact (produced by the [Text Extraction](../text_extraction/README.md) component), chunks them, embeds them via Llama Stack, and indexes them into a vector store. Supports **batch processing**: when `batch_size` > 0, documents are read, chunked, embedded, and indexed in batches to limit memory use and allow progress on large inputs.
+Reads markdown files from the **extracted_text** artifact (produced by the [Text Extraction](../text_extraction/README.md) component),
+chunks them, embeds them via Llama Stack, and indexes them into a vector store. Supports **batch processing**: when `batch_size` > 0, documents are read, chunked, embedded, and indexed in batches to limit memory use and allow progress on large inputs.
 
 ## Inputs
 

@@ -5,10 +5,7 @@ from kfp import dsl
 
 @dsl.component(
     base_image="registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc",
-    packages_to_install=[
-        "langchain-text-splitters",
-        "ai4rag@git+https://github.com/IBM/ai4rag.git"
-    ],
+    packages_to_install=["langchain-text-splitters", "ai4rag@git+https://github.com/IBM/ai4rag.git"],
 )
 def documents_indexing(
     embedding_model_id: str,
@@ -20,7 +17,7 @@ def documents_indexing(
     chunk_size: int = 1024,
     chunk_overlap: int = 0,
     batch_size: int = 20,
-    collection_name: str = None
+    collection_name: str = None,
 ):
     """Index extracted text into a vector store with optional batch processing.
 
@@ -62,23 +59,16 @@ def documents_indexing(
         logger.warning("No documents found in %s", extracted_text.path)
         return
 
-    chunker = LangChainChunker(
-        method=chunking_method, chunk_size=chunk_size, chunk_overlap=chunk_overlap
-    )
-    embedding_model = LSEmbeddingModel(
-        client=client, model_id=embedding_model_id, params=params
-    )
+    chunker = LangChainChunker(method=chunking_method, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    embedding_model = LSEmbeddingModel(client=client, model_id=embedding_model_id, params=params)
 
-    collection_name_param = {
-        "reuse_collection_name": collection_name
-        if collection_name is not None else {}
-    }
+    collection_name_param = {"reuse_collection_name": collection_name if collection_name is not None else {}}
     ls_vectorstore = LSVectorStore(
         embedding_model=embedding_model,
         client=client,
         provider_id=llama_stack_vector_store_id,
         distance_metric=distance_metric,
-        **collection_name_param
+        **collection_name_param,
     )
 
     effective_batch_size = batch_size if batch_size > 0 else total_documents
@@ -112,4 +102,3 @@ def documents_indexing(
         total_documents,
         total_chunks,
     )
-
