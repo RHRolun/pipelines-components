@@ -18,6 +18,7 @@ def documents_indexing_pipeline(
     llama_stack_secret_name: str,
     embedding_model_id: str,
     llama_stack_vector_database_id: str,
+    collection_name: str = None,
     embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",
     chunking_method: str = "recursive",
@@ -29,7 +30,7 @@ def documents_indexing_pipeline(
 
     Args:
         input_data_secret_name: Name of the secret with S3 credentials for input data
-            ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT").
+            ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION").
         input_data_bucket_name: Name of the S3 bucket containing input data.
         input_data_key: Path to folder with input documents within bucket.
         llama_stack_secret_name: Name of the secret with LLAMA stack credentials
@@ -37,6 +38,7 @@ def documents_indexing_pipeline(
         embedding_model_id: Embedding model ID for the vector store.
         embedding_params: Dict passed to LSEmbeddingParams (default: {}).
         llama_stack_vector_database_id: Optional Llama Stack provider ID.
+        collection_name: Optional name of the collection to reuse; omit to create a new one.
         distance_metric: Vector distance metric (e.g. "cosine").
         chunking_method: Chunking method (e.g. "recursive").
         chunk_size: Chunk size in characters.
@@ -62,6 +64,7 @@ def documents_indexing_pipeline(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         batch_size=batch_size,
+        collection_name=collection_name,
     )
 
     def set_input_data_secrets(task, secret_name):

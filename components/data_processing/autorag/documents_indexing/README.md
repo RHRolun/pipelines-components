@@ -32,7 +32,7 @@ The component uses Llama Stack for embedding and vector store. Set these environ
 
 ## Outputs
 
-This component does not produce pipeline artifacts. It writes embedded chunks directly to the vector store configured via `provider_id` and the Llama Stack client.
+This component does not produce pipeline artifacts. It writes embedded chunks directly to the vector store configured via `llama_stack_vector_database_id` and the Llama Stack client.
 
 ## Batch processing
 
