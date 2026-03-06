@@ -42,12 +42,11 @@ def documents_indexing(
     import sys
     from pathlib import Path
 
-    from langchain_core.documents import Document
-    from llama_stack_client import LlamaStackClient
-
     from ai4rag.rag.chunking import LangChainChunker
     from ai4rag.rag.embedding.llama_stack import LSEmbeddingModel, LSEmbeddingParams
     from ai4rag.rag.vector_store.llama_stack import LSVectorStore
+    from langchain_core.documents import Document
+    from llama_stack_client import LlamaStackClient
 
     logger = logging.getLogger("Document Loader component logger")
     logger.setLevel(logging.INFO)
