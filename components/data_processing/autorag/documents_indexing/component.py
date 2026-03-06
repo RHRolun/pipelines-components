@@ -37,16 +37,17 @@ def documents_indexing(
         batch_size: Number of documents per batch; 0 means process all in one batch.
         collection_name: Optional name of the collection to reuse; omit to create a new one.
     """
+    import logging
     import os
     import sys
-    import logging
     from pathlib import Path
 
+    from langchain_core.documents import Document
+    from llama_stack_client import LlamaStackClient
+
+    from ai4rag.rag.chunking import LangChainChunker
     from ai4rag.rag.embedding.llama_stack import LSEmbeddingModel, LSEmbeddingParams
     from ai4rag.rag.vector_store.llama_stack import LSVectorStore
-    from ai4rag.rag.chunking import LangChainChunker
-    from llama_stack_client import LlamaStackClient
-    from langchain_core.documents import Document
 
     logger = logging.getLogger("Document Loader component logger")
     logger.setLevel(logging.INFO)

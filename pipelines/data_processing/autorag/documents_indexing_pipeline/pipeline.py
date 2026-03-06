@@ -4,7 +4,6 @@ from kfp import dsl
 from kfp.kubernetes import use_secret_as_env
 from kfp_components.components.data_processing.autorag.documents_discovery.component import documents_discovery
 from kfp_components.components.data_processing.autorag.documents_indexing.component import documents_indexing
-from kfp_components.components.data_processing.autorag.test_data_loader.component import test_data_loader
 from kfp_components.components.data_processing.autorag.text_extraction.component import text_extraction
 
 
