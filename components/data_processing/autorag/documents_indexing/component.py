@@ -1,3 +1,5 @@
+from typing import Optional
+
 from kfp import dsl
 
 
@@ -9,15 +11,16 @@ from kfp import dsl
     ],
 )
 def documents_indexing(
-    embedding_params: dict,
     embedding_model_id: str,
     extracted_text: dsl.Input[dsl.Artifact],
-    provider_id: str,
+    llama_stack_vector_store_id: str,
+    embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",
     chunking_method: str = "recursive",
     chunk_size: int = 1024,
     chunk_overlap: int = 0,
     batch_size: int = 20,
+    collection_name: str = None
 ):
     """Index extracted text into a vector store with optional batch processing.
 
@@ -41,6 +44,9 @@ def documents_indexing(
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
+    if embedding_params is None:
+        embedding_params = {}
+
     params = LSEmbeddingParams(**embedding_params)
 
     client = LlamaStackClient(
@@ -62,11 +68,17 @@ def documents_indexing(
     embedding_model = LSEmbeddingModel(
         client=client, model_id=embedding_model_id, params=params
     )
+
+    collection_name_param = {
+        "reuse_collection_name": collection_name
+        if collection_name is not None else {}
+    }
     ls_vectorstore = LSVectorStore(
         embedding_model=embedding_model,
         client=client,
-        provider_id=provider_id,
+        provider_id=llama_stack_vector_store_id,
         distance_metric=distance_metric,
+        **collection_name_param
     )
 
     effective_batch_size = batch_size if batch_size > 0 else total_documents

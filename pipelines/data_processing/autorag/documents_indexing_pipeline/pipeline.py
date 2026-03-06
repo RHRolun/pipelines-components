@@ -18,8 +18,8 @@ def documents_indexing_pipeline(
     input_data_key: str,
     llama_stack_secret_name: str,
     embedding_model_id: str,
-    embedding_params: dict = None,
-    provider_id: Optional[str] = None,
+    llama_stack_vector_store_id: str,
+    embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",
     chunking_method: str = "recursive",
     chunk_size: int = 1024,
@@ -35,16 +35,13 @@ def documents_indexing_pipeline(
         input_data_key: Path to folder with input documents within bucket.
         embedding_model_id: Embedding model ID for the vector store.
         embedding_params: Dict passed to LSEmbeddingParams (default: {}).
-        provider_id: Optional Llama Stack provider ID.
+        llama_stack_vector_store_id: Optional Llama Stack provider ID.
         distance_metric: Vector distance metric (e.g. "cosine").
         chunking_method: Chunking method (e.g. "recursive").
         chunk_size: Chunk size in characters.
         chunk_overlap: Chunk overlap in characters.
         batch_size: Number of documents per batch (0 = process all at once).
     """
-    if embedding_params is None:
-        embedding_params = {}
-
     documents_discovery_task = documents_discovery(
         input_data_bucket_name=input_data_bucket_name,
         input_data_path=input_data_key,
@@ -58,7 +55,7 @@ def documents_indexing_pipeline(
         embedding_params=embedding_params,
         embedding_model_id=embedding_model_id,
         extracted_text=text_extraction_task.outputs["extracted_text"],
-        provider_id=provider_id,
+        provider_id=llama_stack_vector_store_id,
         distance_metric=distance_metric,
         chunking_method=chunking_method,
         chunk_size=chunk_size,
@@ -66,10 +63,7 @@ def documents_indexing_pipeline(
         batch_size=batch_size,
     )
 
-    for task, secret_name in zip(
-        [documents_discovery_task, text_extraction_task],
-        [input_data_secret_name, input_data_secret_name],
-    ):
+    def set_input_data_secrets(task, secret_name):
         use_secret_as_env(
             task,
             secret_name=secret_name,
@@ -80,6 +74,9 @@ def documents_indexing_pipeline(
                 "AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
             },
         )
+
+    set_input_data_secrets(documents_discovery_task, input_data_secret_name)
+    set_input_data_secrets(text_extraction_task, input_data_secret_name)
 
     use_secret_as_env(
         documents_indexing_task,
