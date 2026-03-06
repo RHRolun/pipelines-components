@@ -40,6 +40,7 @@ The optimization process involves the following stages:
 | `embeddings_models` | `List` | - | List of embedding model identifiers to try out in the experiment process. |
 | `generation_models` | `List` | - | List of foundation/generation model identifiers to try out in the experiment process. |
 | `optimization_metric` | `str` | `"faithfulness"` | Metric to optimize for. Supported: `faithfulness`, `answer_correctness`, `context_correctness`. |
+| `optimization_max_rag_patterns` | `int` | `8` | Maximum number of RAG patterns to generate. Passed to ai4rag (max_number_of_rag_patterns). |
 
 ## Outputs 📤
 
@@ -285,6 +286,7 @@ def my_pipeline():
         embeddings_models=["ibm/slate-125m-english-rtrvr-v2", "intfloat/multilingual-e5-large"],
         generation_models=["mistralai/mixtral-8x7b-instruct-v01", "ibm/granite-13b-instruct-v2"],
         optimization_metric="answer_correctness",
+        optimization_max_rag_patterns=8,
         llama_stack_vector_database_id="milvus-database",
     )
 ```
