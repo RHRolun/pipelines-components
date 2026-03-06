@@ -17,7 +17,7 @@ def documents_indexing(
     chunk_size: int = 1024,
     chunk_overlap: int = 0,
     batch_size: int = 20,
-    collection_name: str = None,
+    collection_name: Optional[str] = None,
 ):
     """Index extracted text into a vector store with optional batch processing.
 
