@@ -15,25 +15,25 @@ Extends the [AutoRAG Data Processing Pipeline](../documents_processing_pipeline/
 
 ## Inputs
 
-| Parameter                 | Type              | Default   | Description |
-|---------------------------|-------------------|-----------|-------------|
-| `test_data_secret_name`   | `str`             | —         | Secret with S3 credentials for test data. |
-| `input_data_secret_name`  | `str`             | —         | Secret with S3 credentials for input data. |
-| `indexing_secret_name`    | `str`             | —         | Secret with Llama Stack credentials (`LLAMA_STACK_CLIENT_BASE_URL`, `LLAMA_STACK_CLIENT_API_KEY`). |
-| `input_data_bucket_name`  | `str`             | —         | S3 bucket containing input documents. |
-| `input_data_key`          | `str`             | —         | Path to folder with input documents in the bucket. |
-| `embedding_model_id`      | `str`             | —         | Embedding model ID for the vector store. |
-| `collection_name`         | `str`             | —         | Name of the vector store collection. |
-| `embedding_params`        | `dict`            | `{}`      | Dict passed to LSEmbeddingParams. |
-| `sampling_enabled`        | `bool`            | `False`   | Whether to enable document sampling. |
-| `sampling_max_size`       | `Optional[float]` | `None`    | Max size of sampled documents (GB). |
-| `test_data_bucket_name`   | `Optional[str]`   | `None`    | S3 bucket for test data file. |
-| `test_data_key`           | `Optional[str]`   | `None`    | S3 object key to test data JSON. |
-| `provider_id`             | `Optional[str]`   | `None`    | Optional Llama Stack provider ID. |
-| `distance_metric`         | `str`             | `"cosine"`| Vector distance metric. |
-| `chunking_method`         | `str`             | `"recursive"` | Chunking method. |
-| `chunk_size`              | `int`             | `1024`    | Chunk size in characters. |
-| `chunk_overlap`           | `int`             | `0`       | Chunk overlap in characters. |
+| Parameter                        | Type              | Default       | Description                                                                                        |
+|----------------------------------|-------------------|---------------|----------------------------------------------------------------------------------------------------|
+| `test_data_secret_name`          | `str`             | —             | Secret with S3 credentials for test data.                                                          |
+| `input_data_secret_name`         | `str`             | —             | Secret with S3 credentials for input data.                                                         |
+| `indexing_secret_name`           | `str`             | —             | Secret with Llama Stack credentials (`LLAMA_STACK_CLIENT_BASE_URL`, `LLAMA_STACK_CLIENT_API_KEY`). |
+| `input_data_bucket_name`         | `str`             | —             | S3 bucket containing input documents.                                                              |
+| `input_data_key`                 | `str`             | —             | Path to folder with input documents in the bucket.                                                 |
+| `embedding_model_id`             | `str`             | —             | Embedding model ID for the vector store.                                                           |
+| `collection_name`                | `str`             | —             | Name of the vector store collection.                                                               |
+| `embedding_params`               | `dict`            | `{}`          | Dict passed to LSEmbeddingParams.                                                                  |
+| `sampling_enabled`               | `bool`            | `False`       | Whether to enable document sampling.                                                               |
+| `sampling_max_size`              | `Optional[float]` | `None`        | Max size of sampled documents (GB).                                                                |
+| `test_data_bucket_name`          | `Optional[str]`   | `None`        | S3 bucket for test data file.                                                                      |
+| `test_data_key`                  | `Optional[str]`   | `None`        | S3 object key to test data JSON.                                                                   |
+| `llama_stack_vector_database_id` | `Optional[str]`   | `None`        | Vector store provider ID.                                                                          |
+| `distance_metric`                | `str`             | `"cosine"`    | Vector distance metric.                                                                            |
+| `chunking_method`                | `str`             | `"recursive"` | Chunking method.                                                                                   |
+| `chunk_size`                     | `int`             | `1024`        | Chunk size in characters.                                                                          |
+| `chunk_overlap`                  | `int`             | `0`           | Chunk overlap in characters.                                                                       |
 
 ## Components used
 

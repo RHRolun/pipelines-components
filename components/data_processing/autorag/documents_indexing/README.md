@@ -9,17 +9,17 @@ chunks them, embeds them via Llama Stack, and indexes them into a vector store. 
 
 ## Inputs
 
-| Parameter              | Type                      | Default       | Description                                                                      |
-|------------------------|---------------------------|---------------|----------------------------------------------------------------------------------|
-| `embedding_params`     | `dict`                    | —             | Embedding parameters.                                                            |
-| `embedding_model_id`   | `str`                     | —             | Embedding model ID.                                                              |
-| `extracted_text`       | `dsl.Input[dsl.Artifact]` | —             | Input artifact (folder) containing `.md` files from text extraction.             |
-| `provider_id`          | `str`                     | —             | Vector store provider ID.                                                        |
-| `distance_metric`      | `str`                     | `"cosine"`    | Vector distance metric.                                                          |
-| `chunking_method`      | `str`                     | `"recursive"` | Chunking method (e.g. LangChain recursive splitter).                             |
-| `chunk_size`           | `int`                     | `1024`        | Chunk size in characters.                                                        |
-| `chunk_overlap`        | `int`                     | `0`           | Chunk overlap in characters.                                                     |
-| `batch_size`           | `int`                     | `50`          | Number of documents per batch. Set to `0` to process all documents in one batch. |
+| Parameter                        | Type                      | Default       | Description                                                                      |
+|----------------------------------|---------------------------|---------------|----------------------------------------------------------------------------------|
+| `embedding_params`               | `dict`                    | —             | Embedding parameters.                                                            |
+| `embedding_model_id`             | `str`                     | —             | Embedding model ID.                                                              |
+| `extracted_text`                 | `dsl.Input[dsl.Artifact]` | —             | Input artifact (folder) containing `.md` files from text extraction.             |
+| `llama_stack_vector_database_id` | `str`                     | —             | Vector store provider ID.                                                        |
+| `distance_metric`                | `str`                     | `"cosine"`    | Vector distance metric.                                                          |
+| `chunking_method`                | `str`                     | `"recursive"` | Chunking method (e.g. LangChain recursive splitter).                             |
+| `chunk_size`                     | `int`                     | `1024`        | Chunk size in characters.                                                        |
+| `chunk_overlap`                  | `int`                     | `0`           | Chunk overlap in characters.                                                     |
+| `batch_size`                     | `int`                     | `50`          | Number of documents per batch. Set to `0` to process all documents in one batch. |
 
 ### Llama Stack credentials
 

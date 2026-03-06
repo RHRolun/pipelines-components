@@ -10,7 +10,7 @@ from kfp import dsl
 def documents_indexing(
     embedding_model_id: str,
     extracted_text: dsl.Input[dsl.Artifact],
-    llama_stack_vector_store_id: str,
+    llama_stack_vector_database_id: str,
     embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",
     chunking_method: str = "recursive",
@@ -24,6 +24,18 @@ def documents_indexing(
     Reads markdown files from extracted_text, chunks them, embeds via Llama Stack,
     and adds them to the vector store. When batch_size > 0, processes documents
     in batches to limit memory use and allow progress on large inputs.
+
+    Args:
+        embedding_model_id: Embedding model ID used for the vector store.
+        extracted_text: Input artifact (folder) containing .md files from text extraction.
+        llama_stack_vector_database_id: Llama Stack provider ID for the vector database.
+        embedding_params: Optional embedding parameters.
+        distance_metric: Vector distance metric (e.g. "cosine").
+        chunking_method: Chunking method.
+        chunk_size: Chunk size in characters.
+        chunk_overlap: Chunk overlap in characters.
+        batch_size: Number of documents per batch; 0 means process all in one batch.
+        collection_name: Optional name of the collection to reuse; omit to create a new one.
     """
     import os
     import sys
@@ -66,7 +78,7 @@ def documents_indexing(
     ls_vectorstore = LSVectorStore(
         embedding_model=embedding_model,
         client=client,
-        provider_id=llama_stack_vector_store_id,
+        provider_id=llama_stack_vector_database_id,
         distance_metric=distance_metric,
         **collection_name_param,
     )

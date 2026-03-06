@@ -18,7 +18,7 @@ def documents_indexing_pipeline(
     input_data_key: str,
     llama_stack_secret_name: str,
     embedding_model_id: str,
-    llama_stack_vector_store_id: str,
+    llama_stack_vector_database_id: str,
     embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",
     chunking_method: str = "recursive",
@@ -29,13 +29,15 @@ def documents_indexing_pipeline(
     """Defines a pipeline to load, sample, extract text, and index documents for AutoRAG.
 
     Args:
-        input_data_secret_name: Name of the secret with S3 credentials for input data.
-            (LLAMA_STACK_CLIENT_BASE_URL, LLAMA_STACK_CLIENT_API_KEY).
+        input_data_secret_name: Name of the secret with S3 credentials for input data
+            ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT").
         input_data_bucket_name: Name of the S3 bucket containing input data.
         input_data_key: Path to folder with input documents within bucket.
+        llama_stack_secret_name: Name of the secret with LLAMA stack credentials
+            ("LLAMA_STACK_CLIENT_BASE_URL", "LLAMA_STACK_CLIENT_API_KEY").
         embedding_model_id: Embedding model ID for the vector store.
         embedding_params: Dict passed to LSEmbeddingParams (default: {}).
-        llama_stack_vector_store_id: Optional Llama Stack provider ID.
+        llama_stack_vector_database_id: Optional Llama Stack provider ID.
         distance_metric: Vector distance metric (e.g. "cosine").
         chunking_method: Chunking method (e.g. "recursive").
         chunk_size: Chunk size in characters.
@@ -55,7 +57,7 @@ def documents_indexing_pipeline(
         embedding_params=embedding_params,
         embedding_model_id=embedding_model_id,
         extracted_text=text_extraction_task.outputs["extracted_text"],
-        llama_stack_vector_store_id=llama_stack_vector_store_id,
+        llama_stack_vector_database_id=llama_stack_vector_database_id,
         distance_metric=distance_metric,
         chunking_method=chunking_method,
         chunk_size=chunk_size,
