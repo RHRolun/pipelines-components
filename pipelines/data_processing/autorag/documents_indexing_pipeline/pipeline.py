@@ -55,7 +55,7 @@ def documents_indexing_pipeline(
         embedding_params=embedding_params,
         embedding_model_id=embedding_model_id,
         extracted_text=text_extraction_task.outputs["extracted_text"],
-        provider_id=llama_stack_vector_store_id,
+        llama_stack_vector_store_id=llama_stack_vector_store_id,
         distance_metric=distance_metric,
         chunking_method=chunking_method,
         chunk_size=chunk_size,
