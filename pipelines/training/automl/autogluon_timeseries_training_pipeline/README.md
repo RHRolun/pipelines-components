@@ -1,4 +1,4 @@
-# Autogluon Tabular Training Pipeline ✨
+# Autogluon Time Series Training Pipeline ✨
 
 > ⚠️ **Stability: alpha** — This asset is not yet stable and may change.
 
