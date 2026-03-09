@@ -124,7 +124,7 @@ def documents_rag_optimization_pipeline(
             "max_number_of_rag_patterns": optimization_max_rag_patterns,
         },
         test_data_key=test_data_key,
-        input_test_data_key=input_data_key,
+        input_data_key=input_data_key,
     )
 
     use_secret_as_env(

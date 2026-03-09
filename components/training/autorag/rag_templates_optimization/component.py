@@ -25,7 +25,7 @@ def rag_templates_optimization(
     embedding_model_token: Optional[str] = None,
     llama_stack_vector_database_id: Optional[str] = None,
     optimization_settings: Optional[dict] = None,
-    input_test_data_key: Optional[str] = None,
+    input_data_key: Optional[str] = None,
     test_data_key: Optional[str] = None,
 ):
     """RAG Templates Optimization component.
@@ -59,6 +59,9 @@ def rag_templates_optimization(
 
         optimization_settings: Additional settings customising the experiment.
 
+        input_data_key: A path to documents dir within a bucket used as an input to AI4RAG experiment.
+        test_data_key: A path to test data file within a bucket used as an input to AI4RAG experiment.
+
     Returns:
         rag_patterns: Folder containing all generated RAG patterns (each subdir: pattern.json,
             indexing_notebook.ipynb, inference_notebook.ipynb).
@@ -76,7 +79,6 @@ def rag_templates_optimization(
         pass
 
     import os
-    import json
     from collections import namedtuple
     from json import dump as json_dump
     from pathlib import Path
@@ -203,6 +205,8 @@ def rag_templates_optimization(
             Programming language.
         language_version : str, default="3.11.0"
             Language version.
+        cells : list[NotebookCell] | None, default=None
+            Notebook cells to build the notebook from.
 
         Examples
         --------
@@ -277,7 +281,7 @@ def rag_templates_optimization(
             path.parent.mkdir(parents=True, exist_ok=True)
 
             with path.open("w+") as f:
-                json.dump(self.to_dict(), f, indent=indent)
+                json_dump(self.to_dict(), f, indent=indent)
 
             return self
 
@@ -462,7 +466,7 @@ def rag_templates_optimization(
                 "from langchain_core.documents import Document\n",
                 "\n",
                 "for logger_name in (\n",
-                '        "Test Data Loader component logger",\n',
+                '        "httpx",\n',
                 '        "Document Loader component logger",\n',
                 '        "Text Extraction component logger",\n',
                 "):\n",
@@ -484,18 +488,6 @@ def rag_templates_optimization(
         "AWS_ENV": NotebookCell(
             cell_type="code",
             source=[
-                # 'AWS_ACCESS_KEY_ID = ""\n',
-                # 'AWS_SECRET_ACCESS_KEY = ""\n',
-                # 'AWS_S3_ENDPOINT = ""\n',
-                # 'AWS_DEFAULT_REGION = ""\n',
-                # 'AWS_S3_BUCKET = ""\n',
-                # "\n",
-                # 'os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID or os.environ.get("AWS_ACCESS_KEY_ID")\n',
-                # 'os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY or os.environ.get("AWS_SECRET_ACCESS_KEY")\n',
-                # 'os.environ["AWS_S3_ENDPOINT"] = AWS_S3_ENDPOINT or os.environ.get("AWS_S3_ENDPOINT")\n',
-                # 'os.environ["AWS_DEFAULT_REGION"] = AWS_DEFAULT_REGION or os.environ.get("AWS_DEFAULT_REGION")\n',
-                # 'os.environ["AWS_S3_BUCKET"] = AWS_S3_BUCKET or os.environ.get("AWS_S3_BUCKET")\n',
-                # "\n",
                 'required_vars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION", "AWS_S3_BUCKET"]\n',
                 "missing = [var for var in required_vars if not os.environ.get(var)]\n",
                 "if missing:\n",
@@ -535,7 +527,7 @@ def rag_templates_optimization(
                 "The data processing pipeline prepares documents for the RAG system in multiple steps. Each step runs as a standalone component with outputs stored under `step_outputs/`. \n",
                 "\n",
                 "| Step | Component | Purpose |\n",
-                "|------|-----------|---------|",
+                "|------|-----------|---------|\n",
                 "| 1 | **Documents discovery** | List documents in the bucket, prioritize benchmark-referenced docs, apply a size cap, and write a JSON manifest (no content download). |\n",
                 "| 2 | **Text extraction** | Download the listed documents from S3 and extract text to Markdown using Docling. |",
             ],
@@ -621,7 +613,7 @@ def rag_templates_optimization(
                 "- `LLAMA_STACK_CLIENT_API_KEY`: Your authentication key for the Llama Stack API\n",
                 "- `LLAMA_STACK_CLIENT_BASE_URL`: The base URL of your Llama Stack instance\n",
                 "\n",
-                "&#x1F516; **Note**: To use ai4rag with Llama Stack, at least 1 foundation model, 1 embedding model, and a connected Milvus instance should be available on the server side.",
+                "&#x1F4A1; **Tip**: In OpenShift AI Workbench, you can add these as environment variables or data connections to avoid entering them manually each time.",
             ],
         ),
         "LS_CLIENT": NotebookCell(
@@ -661,7 +653,7 @@ def rag_templates_optimization(
                 "chunk_size = {CHUNK_SIZE}\n",
                 "chunk_overlap = {CHUNK_OVERLAP}\n",
                 "\n",
-                "chunker = LangChainChunker(method=chunking_method, chunk_size=chunk_size, chunk_overlap=chunk_overlap)\n",
+                "chunker = LangChainChunker(method=chunking_method, chunk_size=chunk_size, chunk_overlap=chunk_overlap)",
             ],
         ),
         "MD_3_3": NotebookCell(
@@ -737,10 +729,16 @@ def rag_templates_optimization(
         "SAMPLE_SEARCH": NotebookCell(
             cell_type="code",
             source=[
+                "from pprint import pprint\n",
+                "\n",
                 "sample_question = input()\n",
                 "\n",
                 "results = ls_vectorstore.search(query=sample_question, k=5)\n",
-                "results\n",
+                "for result in results:\n",
+                "    if isinstance(result, tuple):\n",
+                "        pprint(result[0].model_dump(mode='python'), indent=4)\n",
+                "        continue\n",
+                "    pprint(result.model_dump(mode='python'), indent=4)",
             ],
         ),
         "SUMMARY": NotebookCell(
@@ -764,23 +762,26 @@ def rag_templates_optimization(
                 "\n",
                 "This notebook demonstrates how to implement and test a Retrieval-Augmented Generation (RAG) pattern using Llama Stack. It guides you through setting up the necessary components, loading test data from an S3 bucket, and querying the RAG system to generate responses based on retrieved context.\n",
                 "\n",
+                "&#x26A0;&#xFE0F; **Important**: Before running this notebook, you must first run the corresponding **indexing.ipynb** notebook to populate the vector store with document embeddings. The indexing process prepares the knowledge base that this notebook queries.\n",
+                "\n",
                 "### &#x1F4CB; Contents \n",
                 "This notebook contains the following sections:\n",
                 "\n",
                 "- **[Setup](#Setup)**\n",
                 "- **[Prepare LlamaStackClient](#Prepare-LlamaStackClient)**\n",
                 "- **[Initialize RAG Components](#Initialize-RAG-Components)**\n",
-                "   - [Foundation Model](#Initialize-LlamaStack-Foundation-Model)\n",
-                "   - [Vector Store](#Initialize-Vector-Store-client)\n",
-                "   - [Retriever](#Initialize-Retriever)\n",
-                "   - [RAG Pattern](#Initialize-RAG-Pattern)\n",
-                "- **[Load Test Data](#Load-test-data)**\n",
-                "   - [S3 Configuration](#Configure-S3-Credentials)\n",
+                "   - [Initialize LlamaStack Foundation Model](#Initialize-LlamaStack-Foundation-Model)\n",
+                "   - [Initialize Vector Store Client](#Initialize-Vector-Store-Client)\n",
+                "   - [Initialize Retriever](#Initialize-Retriever)\n",
+                "   - [Initialize RAG Pattern](#Initialize-RAG-Pattern)\n",
+                "   - [Query RAG Pattern](#Query-RAG-Pattern)\n",
+                "- **[Next steps](#Next-steps)**\n",
+                "   - [Load Test Data](#Load-Test-Data)\n",
+                "   - [Configure S3 Credentials](#Configure-S3-Credentials)\n",
+                "   - [Initialize S3 Client](#Initialize-S3-Client)\n",
                 "   - [Load Benchmark Data](#Load-Benchmark-Data)\n",
-                "- **[Query RAG Pattern](#Query-RAG-Pattern)**\n",
-                "   - [Execute Queries](#Execute-Queries)\n",
                 "   - [Build Evaluation Data](#Build-Evaluation-Data)\n",
-                "   - [Evaluate Response](#Evaluate-response)\n",
+                "   - [Evaluate Response](#Evaluate-Response)\n",
                 "- **[Summary](#Summary)**",
             ],
         ),
@@ -829,10 +830,12 @@ def rag_templates_optimization(
                 "import os\n",
                 "import getpass\n",
                 "import warnings\n",
+                "import logging\n",
                 "\n",
                 "from llama_stack_client import LlamaStackClient\n",
                 "\n",
                 'warnings.filterwarnings("ignore")\n',
+                "logging.getLogger('httpx').propagate = False\n",
                 "\n",
                 'if not os.getenv("LLAMA_STACK_CLIENT_API_KEY") or not os.getenv("LLAMA_STACK_CLIENT_BASE_URL"):\n',
                 '    os.environ["LLAMA_STACK_CLIENT_API_KEY"] = getpass.getpass("Please enter \'LLAMA_STACK_CLIENT_API_KEY\': ")\n',
@@ -966,36 +969,62 @@ def rag_templates_optimization(
                 "rag_pattern = LlamaStackRAG(foundation_model=lsfoundationmodel, retriever=retriever)",
             ],
         ),
+        "MD_3_4": NotebookCell(
+            cell_type="markdown",
+            source=[
+                "---\n",
+                "\n",
+                "### Query RAG Pattern\n",
+                "\n",
+                "This section executes the RAG workflow by submitting test questions to the system and generating responses based on retrieved context.",
+            ],
+        ),
+        "TEST_RESPONSE": NotebookCell(
+            cell_type="code",
+            source=[
+                "from pprint import pprint\n",
+                "\n",
+                "question = input()\n",
+                "response = rag_pattern.generate(question=question)\n",
+                "pprint(response, indent=4, width=50)",
+            ],
+        ),
         "CHAPTER_4": NotebookCell(
             cell_type="markdown",
             source=[
                 "---\n",
                 "\n",
-                "## Load Test Data\n",
+                "## Next steps\n",
+                "\n",
+                "The following sections provide optional next steps for loading test data, running queries, and evaluating the RAG pattern's performance. These steps are useful for systematic testing and benchmarking, but can be skipped if you prefer to interact with the RAG system directly using the pattern configured above.",
+            ],
+        ),
+        "MD_4_1": NotebookCell(
+            cell_type="markdown",
+            source=[
+                "---\n",
+                "\n",
+                "### Load Test Data\n",
                 "\n",
                 "This section prepares the test environment and loads benchmark questions from S3 storage. The test data is used to evaluate the RAG system's performance.",
             ],
         ),
         "LOAD_DATA_IMPORTS": NotebookCell(
-            cell_type="code",
+            cell_type="markdown",
             source=[
+                "```python\n",
                 "import os\n",
                 "import json\n",
-                "import logging\n",
                 "from pathlib import Path\n",
                 "from types import SimpleNamespace\n",
                 "\n",
                 "import boto3\n",
                 "\n",
-                "for logger_name in (\n",
-                '        "Test Data Loader component logger",\n',
-                '        "Document Loader component logger",\n',
-                '        "Text Extraction component logger",\n',
-                "):\n",
-                "    logging.getLogger(logger_name).propagate = False",
+                "logging.getLogger('Test Data Loader component logger').propagate = False\n",
+                "```",
             ],
         ),
-        "MD_4_1": NotebookCell(
+        "MD_4_2": NotebookCell(
             cell_type="markdown",
             source=[
                 "### Configure S3 Credentials\n",
@@ -1008,33 +1037,24 @@ def rag_templates_optimization(
             ],
         ),
         "AWS_ENV": NotebookCell(
-            cell_type="code",
+            cell_type="markdown",
             source=[
-                # 'AWS_ACCESS_KEY_ID = ""\n',
-                # 'AWS_SECRET_ACCESS_KEY = ""\n',
-                # 'AWS_S3_ENDPOINT = ""\n',
-                # 'AWS_DEFAULT_REGION = ""\n',
-                # 'AWS_S3_BUCKET = ""\n',
-                # "\n",
-                # 'os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY_ID or os.environ.get("AWS_ACCESS_KEY_ID")\n',
-                # 'os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_ACCESS_KEY or os.environ.get("AWS_SECRET_ACCESS_KEY")\n',
-                # 'os.environ["AWS_S3_ENDPOINT"] = AWS_S3_ENDPOINT or os.environ.get("AWS_S3_ENDPOINT")\n',
-                # 'os.environ["AWS_DEFAULT_REGION"] = AWS_DEFAULT_REGION or os.environ.get("AWS_DEFAULT_REGION")\n',
-                # 'os.environ["AWS_S3_BUCKET"] = AWS_S3_BUCKET or os.environ.get("AWS_S3_BUCKET")\n',
-                # "\n",
+                "```python\n",
                 'required_vars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION", "AWS_S3_BUCKET"]\n',
                 "missing = [var for var in required_vars if not os.environ.get(var)]\n",
                 "if missing:\n",
-                '    raise ValueError(f"Missing required environment variables: {{missing}}")',
+                '    raise ValueError(f"Missing required environment variables: {{missing}}")\n',
+                "```",
             ],
         ),
-        "MD_4_2": NotebookCell(
+        "MD_4_3": NotebookCell(
             cell_type="markdown",
             source="### Initialize S3 Client\n\nCreates an S3 client session using the provided credentials. This client is used to download test data from the specified S3 bucket.",
         ),
         "S3_CLIENT": NotebookCell(
-            cell_type="code",
+            cell_type="markdown",
             source=[
+                "```python\n",
                 "session = boto3.session.Session(\n",
                 '    aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],\n',
                 '    aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],\n',
@@ -1042,10 +1062,11 @@ def rag_templates_optimization(
                 "s3_client = session.client(\n",
                 "    service_name='s3',\n",
                 '    endpoint_url=os.environ["AWS_S3_ENDPOINT"],\n',
-                ")",
+                ")\n",
+                "```",
             ],
         ),
-        "MD_4_3": NotebookCell(
+        "MD_4_4": NotebookCell(
             cell_type="markdown",
             source=[
                 "### Load Benchmark Data\n",
@@ -1059,8 +1080,9 @@ def rag_templates_optimization(
             ],
         ),
         "TEST_DATA_LOADER": NotebookCell(
-            cell_type="code",
+            cell_type="markdown",
             source=[
+                "```python\n",
                 "from kfp_components.components.data_processing.autorag.test_data_loader.component import test_data_loader\n",
                 "\n",
                 "\n",
@@ -1081,30 +1103,23 @@ def rag_templates_optimization(
                 'with output_path.open("r", encoding="utf-8") as f:\n',
                 "    test_data = json.load(f)\n",
                 "\n",
-                "print(json.dumps(test_data, indent=4, ensure_ascii=False))",
-            ],
-        ),
-        "CHAPTER_5": NotebookCell(
-            cell_type="markdown",
-            source=[
-                "---\n",
-                "\n",
-                "## Query RAG Pattern\n",
-                "\n",
-                "This section executes the RAG workflow by submitting test questions to the system and generating responses based on retrieved context.",
+                "print(json.dumps(test_data, indent=4, ensure_ascii=False))\n",
+                "```",
             ],
         ),
         "EXECUTE_QUERIES": NotebookCell(
-            cell_type="code",
+            cell_type="markdown",
             source=[
+                "```python\n",
                 "inference_responses = []\n",
                 "\n",
                 "for test_data_item in test_data:\n",
                 '    response = rag_pattern.generate(question=test_data_item["question"])\n',
-                "    inference_responses.append(response)",
+                "    inference_responses.append(response)\n",
+                "```",
             ],
         ),
-        "MD_5_1": NotebookCell(
+        "MD_4_5": NotebookCell(
             cell_type="markdown",
             source=[
                 "### Build Evaluation Data\n",
@@ -1135,11 +1150,11 @@ def rag_templates_optimization(
                 "evaluation_data = build_evaluation_data(\n",
                 "    benchmark_data=benchmark_data, \n",
                 "    inference_response=inference_responses\n",
-                ")",
+                ")\n",
                 "```",
             ],
         ),
-        "MD_5_2": NotebookCell(
+        "MD_4_6": NotebookCell(
             cell_type="markdown",
             source=[
                 "### Evaluate Response\n",
@@ -1251,6 +1266,8 @@ def rag_templates_optimization(
             templates_dict: Dictionary of NotebookCell templates (e.g., INDEXING_CELLS_TEMPLATES)
             output_json_path: Path to the output.json file
             output_notebook_path: Path where to save the generated notebook
+            test_data_key: A path to test data file within a bucket used as an input to AI4RAG experiment.
+            input_data_key: A path to documents dir within a bucket used as an input to AI4RAG experiment.
 
         Returns:
             The generated Notebook object
@@ -1531,7 +1548,7 @@ def rag_templates_optimization(
             INDEXING_CELLS_TEMPLATES,
             pattern_data,
             Path(patt_dir, "indexing.ipynb"),
-            input_data_key=input_test_data_key,
+            input_data_key=input_data_key,
         )
 
         generate_notebook_from_templates(
@@ -1547,12 +1564,6 @@ def rag_templates_optimization(
         rag_patterns.metadata["metadata"]["patterns"].append(pattern_data)
         with (patt_dir / "pattern.json").open("w+", encoding="utf-8") as pattern_details:
             json_dump(pattern_data, pattern_details, indent=2)
-
-        # with (patt_dir / "inference_notebook.ipynb").open("w+") as inf_notebook:
-        #     json_dump({"inference_notebook_cell": "cell_value"}, inf_notebook)
-
-        # with (patt_dir / "indexing_notebook.ipynb").open("w+") as ind_notebook:
-        #     json_dump({"ind_notebook_cell": "cell_Value"}, ind_notebook)
 
         eval_data = evaluation_data_list[i] if i < len(evaluation_data_list) else []
         try:
