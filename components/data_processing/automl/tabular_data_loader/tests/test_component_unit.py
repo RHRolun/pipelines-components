@@ -16,6 +16,8 @@ from ..component import automl_data_loader
 from .mocked_pandas import make_mocked_pandas_module
 
 
+mocked_env_variables = {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret", "AWS_S3_ENDPOINT": "test_url"}
+
 @contextmanager
 def _mock_boto3_module(get_object_return=None, get_object_side_effect=None):
     """Inject a fake boto3 module so the component does not require boto3 to be installed."""
@@ -58,7 +60,7 @@ class TestAutomlDataLoaderUnitTests:
         assert callable(automl_data_loader)
         assert hasattr(automl_data_loader, "python_func")
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_with_default_parameters(self, tmp_path):
         """Test component with default sampling_method=None (resolved from task_type=regression -> random)."""
         csv_content = "a,b,c\n1,2,3\n4,5,6\n7,8,9\n"
@@ -83,7 +85,7 @@ class TestAutomlDataLoaderUnitTests:
         assert header == ["a", "b", "c"]
         assert len(rows) == 3
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_explicit_first_n_rows(self, tmp_path):
         """Test component with explicit sampling_method='first_n_rows'."""
         csv_content = "x,y,z\n10,20,30\n40,50,60\n"
@@ -106,7 +108,7 @@ class TestAutomlDataLoaderUnitTests:
         assert header == ["x", "y", "z"]
         assert len(rows) == 2
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_stratified_sampling_with_label_column(self, tmp_path):
         """Test component with sampling_method='stratified' and label_column."""
         csv_content = "feature1,feature2,target\n1,2,A\n2,3,A\n3,4,A\n4,5,B\n5,6,B\n6,7,B\n7,8,C\n8,9,C\n9,10,C\n"
@@ -135,7 +137,7 @@ class TestAutomlDataLoaderUnitTests:
         assert target_vals == {"A", "B", "C"}
         assert len(rows) == 9
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_stratified_requires_label_column(self, tmp_path):
         """Test that sampling_method='stratified' without label_column raises ValueError."""
         with _mock_boto3_and_pandas() as mock_s3:
@@ -153,7 +155,7 @@ class TestAutomlDataLoaderUnitTests:
 
             mock_s3.get_object.assert_not_called()
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_stratified_label_column_not_in_dataset(self, tmp_path):
         """Test that stratified sampling with missing target column raises ValueError."""
         csv_content = "a,b,c\n1,2,3\n4,5,6\n"
@@ -172,7 +174,7 @@ class TestAutomlDataLoaderUnitTests:
                     label_column="label",
                 )
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_stratified_drops_na_in_target(self, tmp_path):
         """Test that stratified sampling drops rows with NA in label_column."""
         csv_content = "f1,f2,target\n1,2,A\n2,3,\n3,4,B\n4,5,B\n"
@@ -198,7 +200,7 @@ class TestAutomlDataLoaderUnitTests:
             assert row[target_idx] != ""  # no NA/empty in target
         assert len(rows) >= 2
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_random_sampling_basic(self, tmp_path):
         """Test component with sampling_method='random' writes valid CSV and returns sample_config."""
         csv_content = "a,b,c\n1,2,3\n4,5,6\n7,8,9\n10,11,12\n"
@@ -222,7 +224,7 @@ class TestAutomlDataLoaderUnitTests:
         assert header == ["a", "b", "c"]
         assert len(rows) == 4
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_random_sampling_deterministic(self, tmp_path):
         """Test that random sampling with fixed random_state is reproducible."""
         csv_content = "x,y\n1,2\n3,4\n5,6\n7,8\n9,10\n"
@@ -254,7 +256,7 @@ class TestAutomlDataLoaderUnitTests:
         _, rows2 = _read_csv_path(full_dataset2.path)
         assert rows1 == rows2
 
-    @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
+    @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_random_sampling_multiple_chunks(self, tmp_path):
         """Test random sampling with CSV large enough to trigger multiple chunks (>10k rows)."""
         header = "col1,col2\n"
