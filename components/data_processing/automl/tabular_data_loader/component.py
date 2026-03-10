@@ -119,14 +119,14 @@ def automl_data_loader(
 
         try:
             for chunk_df in pd.read_csv(text_stream, chunksize=chunk_size):
-                chunk_df = chunk_df.dropna(subset=[label_column])
-                if chunk_df.empty:
-                    continue
                 if label_column not in chunk_df.columns:
                     raise ValueError(
                         f"Target column '{label_column}' not found in the dataset. "
                         f"Available columns: {list(chunk_df.columns)}"
                     )
+                chunk_df = chunk_df.dropna(subset=[label_column])
+                if chunk_df.empty:
+                    continue
 
                 combined_data = (
                     pd.concat([subsampled_data, chunk_df], ignore_index=True)
