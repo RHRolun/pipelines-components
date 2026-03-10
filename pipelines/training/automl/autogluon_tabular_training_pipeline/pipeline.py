@@ -142,6 +142,7 @@ def autogluon_tabular_training_pipeline(
             "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
             "AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
         },
+        optional=True,
     )
 
     train_test_split_task = tabular_train_test_split(
@@ -191,5 +192,5 @@ if __name__ == "__main__":
 
     Compiler().compile(
         autogluon_tabular_training_pipeline,
-        package_path=__file__.replace(".py", "_pipeline.yaml"),
+        package_path=__file__.replace(".py", ".yaml"),
     )
