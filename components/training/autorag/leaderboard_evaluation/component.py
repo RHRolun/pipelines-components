@@ -116,6 +116,23 @@ def leaderboard_evaluation(
             return "optimization metric"
         return metric.replace("_", " ").strip()
 
+    def _header_two_lines(label: str) -> str:
+        """Split header label into two lines by first '_' or '.' for compact column headers."""
+        if "_" in label:
+            parts = label.split("_", 1)
+            line1 = parts[0]
+            line2 = parts[1].replace("_", " ") if len(parts) > 1 else ""
+        elif "." in label:
+            parts = label.split(".", 1)
+            line1 = parts[0]
+            line2 = parts[1].replace("_", " ") if len(parts) > 1 else ""
+        else:
+            line1 = label
+            line2 = ""
+        if not line2:
+            return html.escape(line1)
+        return html.escape(line1) + "<br>" + html.escape(line2)
+
     def _build_leaderboard_html(
         header_row: str,
         table_body: str,
@@ -215,21 +232,23 @@ def leaderboard_evaluation(
     .leaderboard-wrap table {{
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      table-layout: fixed;
     }}
     .leaderboard-wrap th {{
       text-align: left;
-      padding: 1rem 1.25rem;
+      padding: 0.5rem 0.5rem;
       background: var(--surface-hover);
       color: var(--text-muted);
       font-weight: 600;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.03em;
       border-bottom: 1px solid var(--border);
+      line-height: 1.25;
     }}
     .leaderboard-wrap td {{
-      padding: 1rem 1.25rem;
+      padding: 0.5rem 0.5rem;
       border-bottom: 1px solid var(--border);
     }}
     .leaderboard-wrap tr:last-child td {{
@@ -355,9 +374,15 @@ def leaderboard_evaluation(
         if col not in metric_columns:
             metric_columns.append(col)
 
+    # Put optimization metric column second (right after Pattern_Name)
+    opt_metric_col = _metric_to_mean_key(optimization_metric or "faithfulness")
+    if opt_metric_col in metric_columns:
+        other_metrics = [c for c in metric_columns if c != opt_metric_col]
+        metric_columns = [opt_metric_col] + other_metrics
+
     config_columns = list(leaderboard_config_columns)
     headers = ["Pattern_Name"] + metric_columns + config_columns
-    header_row = "".join("<th>%s</th>" % html.escape(h) for h in headers)
+    header_row = "".join("<th>%s</th>" % _header_two_lines(h) for h in headers)
 
     rows = []
     for i, e in enumerate(evaluations):
