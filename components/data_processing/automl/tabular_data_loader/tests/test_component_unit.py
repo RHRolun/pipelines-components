@@ -15,8 +15,12 @@ import pytest
 from ..component import automl_data_loader
 from .mocked_pandas import make_mocked_pandas_module
 
+mocked_env_variables = {
+    "AWS_ACCESS_KEY_ID": "test_key",
+    "AWS_SECRET_ACCESS_KEY": "test_secret",
+    "AWS_S3_ENDPOINT": "test_url",
+}
 
-mocked_env_variables = {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret", "AWS_S3_ENDPOINT": "test_url"}
 
 @contextmanager
 def _mock_boto3_module(get_object_return=None, get_object_side_effect=None):
