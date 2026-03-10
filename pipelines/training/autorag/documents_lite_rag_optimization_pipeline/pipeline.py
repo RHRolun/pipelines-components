@@ -1,5 +1,6 @@
 from kfp import dsl
 from kfp.kubernetes import use_secret_as_env
+from kfp_components.components.data_processing.autorag.input_validation import input_validation
 from kfp_components.components.data_processing.autorag.documents_discovery import documents_discovery
 from kfp_components.components.data_processing.autorag.test_data_loader import test_data_loader
 from kfp_components.components.data_processing.autorag.text_extraction import text_extraction
@@ -64,6 +65,21 @@ def documents_lite_rag_optimization_pipeline(
         optimization_max_rag_patterns: Maximum number of RAG patterns to generate. Passed to ai4rag
             (max_number_of_rag_patterns). Defaults to 8.
     """
+    input_validation(
+        test_data_secret_name=test_data_secret_name,
+        test_data_bucket_name=test_data_bucket_name,
+        test_data_key=test_data_key,
+        input_data_secret_name=input_data_secret_name,
+        input_data_bucket_name=input_data_bucket_name,
+        input_data_key=input_data_key,
+        optimization_metric=optimization_metric,
+        optimization_max_rag_patterns=optimization_max_rag_patterns,
+        chat_model_url=chat_model_url,
+        chat_model_token=chat_model_token,
+        embedding_model_url=embedding_model_url,
+        embedding_model_token=embedding_model_token,
+    )
+
     test_data_loader_task = test_data_loader(
         test_data_bucket_name=test_data_bucket_name,
         test_data_path=test_data_key,

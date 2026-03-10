@@ -1,0 +1,12 @@
+---
+name: input_validation
+stability: alpha
+dependencies:
+  kubeflow:
+    - name: Pipelines
+      version: '>=2.15.2'
+tags:
+  - data-processing
+  - autorag
+  - validation
+lastVerified: 2026-03-10T00:00:00Z
