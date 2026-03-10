@@ -68,18 +68,19 @@ def automl_data_loader(
         if (access_key and not secret_key) or (secret_key and not access_key):
             raise ValueError(
                 "S3 credentials misconfigured: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either "
-                "both be set and non-empty, or both be unset. Check the Kubernetes secret with connection details."
+                "both be set and non-empty, or both be unset. Check the Kubernetes secret or environment configuration."
             )
         if not access_key and not secret_key:
             raise ValueError(
                 "S3 credentials missing: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be provided via "
-                "the Kubernetes secret with connection details when using s3:// dataset URIs."
+                "a Kubernetes secret or environment configuration when using s3:// dataset URIs."
             )
 
         if not endpoint_url:
             raise ValueError(
                 "S3 credentials missing: AWS_S3_ENDPOINT must be provided via the Kubernetes "
                 "secret with connection details."
+                "a Kubernetes secret or environment configuration."
             )
 
         return boto3.client(
@@ -125,14 +126,14 @@ def automl_data_loader(
 
         try:
             for chunk_df in pd.read_csv(text_stream, chunksize=chunk_size):
-                chunk_df = chunk_df.dropna(subset=[label_column])
-                if chunk_df.empty:
-                    continue
                 if label_column not in chunk_df.columns:
                     raise ValueError(
                         f"Target column '{label_column}' not found in the dataset. "
                         f"Available columns: {list(chunk_df.columns)}"
                     )
+                chunk_df = chunk_df.dropna(subset=[label_column])
+                if chunk_df.empty:
+                    continue
 
                 combined_data = (
                     pd.concat([subsampled_data, chunk_df], ignore_index=True)
