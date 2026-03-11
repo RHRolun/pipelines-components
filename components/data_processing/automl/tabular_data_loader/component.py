@@ -49,6 +49,15 @@ def automl_data_loader(
     PANDAS_CHUNK_SIZE = 10000  # Rows per batch for streaming read
     DEFAULT_RANDOM_STATE = 42
 
+    VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
+    VALID_TASK_TYPES = {"binary", "multiclass", "regression"}
+
+    if sampling_method is not None and sampling_method not in VALID_SAMPLING_METHODS:
+        raise ValueError(f"Invalid sampling_method '{sampling_method}'. Must be one of {VALID_SAMPLING_METHODS}.")
+
+    if task_type not in VALID_TASK_TYPES:
+        raise ValueError(f"Invalid task_type '{task_type}'. Must be one of {VALID_TASK_TYPES}.")
+
     if sampling_method is None:
         if task_type in ("binary", "multiclass"):
             sampling_method = "stratified"

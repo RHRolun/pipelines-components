@@ -12,14 +12,23 @@ from unittest import mock
 
 import pytest
 
-# Install mocks before component is imported so component's imports see them when running.
-_mock_pd = mock.MagicMock()
-_mock_sklearn = mock.MagicMock()
-_mock_sklearn_model_selection = mock.MagicMock()
-_mock_sklearn.model_selection = _mock_sklearn_model_selection
-sys.modules["pandas"] = _mock_pd
-sys.modules["sklearn"] = _mock_sklearn
-sys.modules["sklearn.model_selection"] = _mock_sklearn_model_selection
+
+@pytest.fixture(autouse=True, scope="module")
+def isolated_sys_modules():
+    """Patch sys.modules so pandas/sklearn mocks are only present during this test module.
+
+    This prevents import pollution that could affect other tests in a session.
+    """
+    with mock.patch.dict(sys.modules, clear=False) as mocked_modules:
+        _mock_pd = mock.MagicMock()
+        _mock_sklearn = mock.MagicMock()
+        _mock_sklearn_model_selection = mock.MagicMock()
+        _mock_sklearn.model_selection = _mock_sklearn_model_selection
+        mocked_modules["pandas"] = _mock_pd
+        mocked_modules["sklearn"] = _mock_sklearn
+        mocked_modules["sklearn.model_selection"] = _mock_sklearn_model_selection
+        yield
+
 
 from ..component import tabular_train_test_split  # noqa: E402
 
@@ -56,39 +65,43 @@ def _make_mock_dataframe_and_series():
 
 @contextmanager
 def _mock_pandas_and_sklearn(mocks=None):
-    """Inject mock pandas and sklearn so the component runs without real dependencies."""
+    """Configure pandas/sklearn mocks (from fixture) so the component runs without real dependencies."""
     if mocks is None:
         mocks = _make_mock_dataframe_and_series()
 
-    _mock_pd.read_csv.return_value = mocks["df"]
-    _mock_pd.concat.side_effect = [mocks["train_combined"], mocks["test_combined"]]
-    _mock_sklearn_model_selection.train_test_split.side_effect = None
-    _mock_sklearn_model_selection.train_test_split.return_value = (
+    mock_pd = sys.modules.get("pandas")
+    mock_sklearn_model_selection = sys.modules.get("sklearn.model_selection")
+    if mock_pd is None or mock_sklearn_model_selection is None:
+        raise RuntimeError(
+            "pandas/sklearn mocks not in sys.modules (tests must run with isolated_sys_modules fixture)."
+        )
+
+    mock_pd.read_csv.return_value = mocks["df"]
+    mock_pd.concat.side_effect = [mocks["train_combined"], mocks["test_combined"]]
+    mock_sklearn_model_selection.train_test_split.side_effect = None
+    mock_sklearn_model_selection.train_test_split.return_value = (
         mocks["X_train"],
         mocks["X_test"],
         mocks["y_train"],
         mocks["y_test"],
     )
 
-    with mock.patch.dict(
-        sys.modules,
-        {"pandas": _mock_pd, "sklearn": _mock_sklearn, "sklearn.model_selection": _mock_sklearn_model_selection},
-    ):
-        try:
-            yield mocks
-        finally:
-            _mock_pd.read_csv.reset_mock()
-            _mock_pd.concat.reset_mock()
-            _mock_sklearn_model_selection.train_test_split.reset_mock()
+    try:
+        yield mocks
+    finally:
+        mock_pd.read_csv.reset_mock()
+        mock_pd.concat.reset_mock()
+        mock_sklearn_model_selection.train_test_split.reset_mock()
 
 
 class TestTrainTestSplitUnitTests:
     """Unit tests for tabular_train_test_split component logic."""
 
     def test_component_function_exists(self):
-        """Component is callable and has python_func."""
+        """Component is callable and has python_func and component_spec."""
         assert callable(tabular_train_test_split)
         assert hasattr(tabular_train_test_split, "python_func")
+        assert hasattr(tabular_train_test_split, "component_spec")
 
     def test_invalid_task_type_raises_value_error(self):
         """Invalid task_type raises ValueError before any pandas/sklearn use."""
@@ -135,8 +148,9 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            _mock_sklearn_model_selection.train_test_split.assert_called_once()
-            call_kw = _mock_sklearn_model_selection.train_test_split.call_args[1]
+            train_test_split = sys.modules["sklearn.model_selection"].train_test_split
+            train_test_split.assert_called_once()
+            call_kw = train_test_split.call_args[1]
             assert call_kw["stratify"] is None
             assert call_kw["test_size"] == 0.2
             assert call_kw["random_state"] == 123
@@ -165,7 +179,7 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            call_kw = _mock_sklearn_model_selection.train_test_split.call_args[1]
+            call_kw = sys.modules["sklearn.model_selection"].train_test_split.call_args[1]
             assert call_kw["stratify"] is mocks["y"]
 
     def test_multiclass_default_stratify_uses_y(self, tmp_path):
@@ -190,7 +204,7 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            call_kw = _mock_sklearn_model_selection.train_test_split.call_args[1]
+            call_kw = sys.modules["sklearn.model_selection"].train_test_split.call_args[1]
             assert call_kw["stratify"] is mocks["y"]
             assert call_kw["test_size"] == 0.3
             assert call_kw["random_state"] == 42
@@ -217,7 +231,7 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            call_kw = _mock_sklearn_model_selection.train_test_split.call_args[1]
+            call_kw = sys.modules["sklearn.model_selection"].train_test_split.call_args[1]
             assert call_kw["stratify"] is None
 
     def test_split_config_defaults_applied(self, tmp_path):
@@ -242,7 +256,7 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            call_kw = _mock_sklearn_model_selection.train_test_split.call_args[1]
+            call_kw = sys.modules["sklearn.model_selection"].train_test_split.call_args[1]
             assert call_kw["test_size"] == 0.3
             assert call_kw["random_state"] == 42
             assert result.split_config["test_size"] == 0.3
@@ -269,7 +283,7 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            _mock_pd.read_csv.assert_called_once_with(dataset.path)
+            sys.modules["pandas"].read_csv.assert_called_once_with(dataset.path)
             mocks["df"].drop.assert_called_once_with(columns=["target"], inplace=True)
             mocks["df"].__getitem__.assert_called_with("target")
 
@@ -376,9 +390,9 @@ class TestTrainTestSplitUnitTests:
                 sampled_test_dataset=sampled_test,
             )
 
-            assert _mock_pd.concat.call_count == 2
-            first_call = _mock_pd.concat.call_args_list[0]
-            second_call = _mock_pd.concat.call_args_list[1]
+            assert sys.modules["pandas"].concat.call_count == 2
+            first_call = sys.modules["pandas"].concat.call_args_list[0]
+            second_call = sys.modules["pandas"].concat.call_args_list[1]
             assert first_call[0][0] == [mocks["X_train"], mocks["y_train"]]
             assert second_call[0][0] == [mocks["X_test"], mocks["y_test"]]
             assert first_call[1] == {"axis": 1}
