@@ -38,6 +38,18 @@ def test_data_loader(test_data_bucket_name: str, test_data_path: str, test_data:
         handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(handler)
 
+    errors = []
+
+    if not test_data_bucket_name:
+        errors.append("test_data_bucket_name must be a non-empty string")
+
+    test_data_path, test_data_suffix = test_data_path.rsplit(".", 1)
+    if not test_data_path or test_data_suffix != ".json":
+        errors.append("test_data_path must point to a JSON file")
+
+    if errors:
+        raise ValueError("Invalid input:\n" + "\n".join(errors))
+
     def get_test_data_s3():
         """Validate S3 credentials and download the JSON test data file."""
         s3_creds = {

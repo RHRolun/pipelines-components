@@ -53,8 +53,6 @@ def rag_templates_optimization(
 
         embedding_model_token: Optional API token for the embedding model endpoint. Omit if no auth.
 
-        vector_database: An identificator of the vector store used in the experiment.
-
         llama_stack_vector_database_id: Vector database identifier as registered in llama-stack.
 
         optimization_settings: Additional settings customising the experiment.
@@ -107,6 +105,38 @@ def rag_templates_optimization(
     MAX_NUMBER_OF_RAG_PATTERNS = 8
     METRIC = "faithfulness"
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
+    SUPPORTED_VS_TYPES = ("ls_milvus", )
+
+    errors = []
+
+    def require_non_empty(**fields):
+        for name, value in fields.items():
+            if not value:
+                errors.append(f"{name} must be a non-empty string.")
+
+    require_non_empty(
+        chat_model_url=chat_model_url,
+        chat_model_token=chat_model_token,
+        embedding_model_url=embedding_model_url,
+        embedding_model_token=embedding_model_token,
+        input_data_key=input_data_key,
+    )
+
+    if llama_stack_vector_database_id and llama_stack_vector_database_id not in SUPPORTED_VS_TYPES:
+        errors.append(
+            f"llama_stack_vector_database_id {llama_stack_vector_database_id} is not supported,"
+            f" supported types are {SUPPORTED_VS_TYPES}."
+        )
+
+    test_data_path, test_data_suffix = test_data_key.rsplit(".", 1)
+    if not test_data_path or test_data_suffix != ".json":
+        errors.append("test_data_path must point to a JSON file")
+
+    if not isinstance(optimization_settings, dict):
+        errors.append("optimization_settings must be a dictionary.")
+
+    if errors:
+        raise ValueError("Invalid input:\n" + "\n".join(errors))
 
     class NotebookCell:
         """
