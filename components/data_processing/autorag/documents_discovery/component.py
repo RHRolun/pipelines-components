@@ -50,12 +50,8 @@ def documents_discovery(
 
     errors = []
 
-    for name, value in {
-        "input_data_bucket_name": input_data_bucket_name,
-        "input_data_path": input_data_path,
-    }:
-        if not value:
-            errors.append(f"{name} must be a non-empty string.")
+    if not input_data_bucket_name:
+        errors.append("input_data_bucket_name must be a non-empty string.")
 
     if not isinstance(sampling_enabled, bool):
         errors.append("sampling_enabled must be a boolean value.")
