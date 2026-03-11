@@ -38,14 +38,18 @@ def autogluon_models_full_refit(
     Artifacts are written under model_artifact.path in a directory named
     <model_name>_FULL (e.g. LightGBM_BAG_L1_FULL). The layout is:
 
-    - model_artifact.path / <model_name>_FULL / predictor /
+      - model_artifact.path / <model_name>_FULL / predictor /
       TabularPredictor (predictor.pkl inside); clone with only the refitted model.
-    - model_artifact.path / <model_name>_FULL / metrics / metrics.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / metrics.json
       (evaluation results; leaderboard component reads this via display_name/metrics/metrics.json).
-    - model_artifact.path / <model_name>_FULL / metrics / feature_importance.json
-    - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / feature_importance.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json
       (classification only).
-    - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
+
+      - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
 
     Artifact metadata: display_name (<model_name>_FULL), context (data_config,
     task_type, label_column, model_config, location, metrics), and
@@ -173,6 +177,10 @@ def autogluon_models_full_refit(
     # Notebook generation
 
     # TODO: Move to build package in next stages
+    # NOTE: The generated notebook expects that a connection secret is available in the environment where it is run.
+    # This connection should provide the same environment variables as required by the pipeline input secret,
+    # i.e. AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, and AWS_DEFAULT_REGION,
+    # plus the variable AWS_S3_BUCKET for S3 bucket access.
 
     REGRESSION = {
         "cells": [
@@ -775,17 +783,21 @@ def autogluon_models_full_refit(
         case _:
             raise ValueError(f"Invalid problem type: {problem_type}")
 
-    # Improve retrieve_pipeline_name: make more robust to trailing dashes and variable dash-count
+    # Improved retrieve_pipeline_name: trims only the run id or suffix
     def retrieve_pipeline_name(pipeline_name: str) -> str:
         """Attempts to infer the original pipeline name from a name that may have a run id or suffix at the end.
 
-        Removes only the last dash-separated element (the run id or variant).
+        Removes only the last dash-separated element (the run id or variant),
+        handling trailing dashes gracefully to avoid dropping real name segments.
         If only a single element exists, returns as is.
         """
-        if not pipeline_name or "-" not in pipeline_name.strip("-"):
+        if not pipeline_name:
             return pipeline_name
-        # Split and remove only the last non-empty part
-        tokens = [t for t in pipeline_name.split("-") if t]
+        # Strip trailing dashes for robust splitting
+        name = pipeline_name.rstrip("-")
+        if "-" not in name:
+            return name
+        tokens = name.split("-")
         if len(tokens) <= 1:
             return tokens[0] if tokens else ""
         return "-".join(tokens[:-1])

@@ -75,14 +75,17 @@ def autogluon_tabular_training_pipeline(
 
     **Two-Stage Training Benefits:**
 
-    - **Efficient Exploration**: Initial model training uses the split training data
-      with efficient ensembling rather than expensive hyperparameter optimization
-    - **Optimal Performance**: Final models are refitted (refit_full) on the predictor's
-      training and validation data for maximum performance
-    - **Parallel Efficiency**: Top models are refitted in parallel to minimize total
-      pipeline execution time
-    - **Production-Ready**: Refitted models are AutoGluon Predictors optimized and ready
-      for deployment
+    - **Efficient Exploration:** Initial model training uses the split training data
+      with efficient ensembling rather than expensive hyperparameter optimization.
+
+    - **Optimal Performance:** Final models are refitted (`refit_full`) on the predictor's
+      training and validation data for maximum performance.
+
+    - **Parallel Efficiency:** Top models are refitted in parallel to minimize total
+      pipeline execution time.
+
+    - **Production-Ready:** Refitted models are AutoGluon Predictors optimized and ready
+      for deployment.
 
     **AutoGluon Ensembling Approach:**
 
@@ -90,9 +93,13 @@ def autogluon_tabular_training_pipeline(
     model types using stacking and bagging rather than traditional hyperparameter optimization.
     This approach is more efficient and typically produces better results for tabular data
     by automatically:
+
     - Training diverse model families
+
     - Combining predictions using multi-level stacking
+
     - Using bootstrap aggregation (bagging) for robustness
+
     - Selecting optimal ensemble configurations
 
     Args:
@@ -165,7 +172,7 @@ def autogluon_tabular_training_pipeline(
     )
 
     # Stage 2: Model Refitting
-    # Refit each top model on the full training dataset
+    # Refit each top model on the training+validation dataset
 
     with dsl.ParallelFor(items=selection_task.outputs["top_models"], parallelism=2) as model_name:
         refit_full_task = autogluon_models_full_refit(

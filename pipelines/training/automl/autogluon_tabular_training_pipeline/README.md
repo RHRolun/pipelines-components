@@ -36,18 +36,29 @@ selection.
 
 **Two-Stage Training Benefits:**
 
-- **Efficient Exploration**: Initial model training uses the split training data with efficient ensembling rather than
-expensive hyperparameter optimization - **Optimal Performance**: Final models are refitted (refit_full) on the
-predictor's training and validation data for maximum performance - **Parallel Efficiency**: Top models are refitted in
-parallel to minimize total pipeline execution time - **Production-Ready**: Refitted models are AutoGluon Predictors
-optimized and ready for deployment
+- **Efficient Exploration:** Initial model training uses the split training data with efficient ensembling rather than
+expensive hyperparameter optimization.
+
+- **Optimal Performance:** Final models are refitted (`refit_full`) on the predictor's training and validation data for
+maximum performance.
+
+- **Parallel Efficiency:** Top models are refitted in parallel to minimize total pipeline execution time.
+
+- **Production-Ready:** Refitted models are AutoGluon Predictors optimized and ready for deployment.
 
 **AutoGluon Ensembling Approach:**
 
 The pipeline leverages AutoGluon's unique ensembling strategy that combines multiple model types using stacking and
 bagging rather than traditional hyperparameter optimization. This approach is more efficient and typically produces
-better results for tabular data by automatically: - Training diverse model families - Combining predictions using
-multi-level stacking - Using bootstrap aggregation (bagging) for robustness - Selecting optimal ensemble configurations
+better results for tabular data by automatically:
+
+- Training diverse model families
+
+- Combining predictions using multi-level stacking
+
+- Using bootstrap aggregation (bagging) for robustness
+
+- Selecting optimal ensemble configurations
 
 ## Inputs 📥
 
@@ -78,7 +89,6 @@ multi-level stacking - Using bootstrap aggregation (bagging) for robustness - Se
   - Approvers:
     - mprahl
     - nsingla
-    - LukaszCmielowski
   - Reviewers:
     - HumairAK
 
@@ -121,7 +131,7 @@ _Note_: There is one `autogluon-models-full-refit/<task_id>/model_artifact/<Mode
 
 For loading:
 
-- Load a refitted model for deployment or notebook exploration using `TabularPredictor.load(<.../model_artifact/<ModelName>_FULL>)`
+- Load a refitted model for deployment or notebook exploration using `TabularPredictor.load(<.../model_artifact/<ModelName>_FULL>/predictor)`
 - Model metrics and feature importances are always at `metrics/` under each model directory.
 - The leaderboard HTML is at `leaderboard-evaluation/<task_id>/html_artifact`.
 

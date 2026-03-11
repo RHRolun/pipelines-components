@@ -1,7 +1,5 @@
 """Tests for the autogluon_models_full_refit component."""
 
-# Assisted-by: Cursor
-
 import json
 import shutil
 import sys
@@ -11,21 +9,25 @@ from unittest import mock
 
 import pytest
 
-# Inject mock modules so @mock.patch("pandas...") and @mock.patch("autogluon...") resolve (yoda-style).
-if "pandas" not in sys.modules:
-    sys.modules["pandas"] = mock.MagicMock()
-if "autogluon" not in sys.modules:
-    _ag = mock.MagicMock()
-    _ag.__path__ = []
-    _ag.__spec__ = None
-    sys.modules["autogluon"] = _ag
-for sub in ("autogluon.tabular", "autogluon.core", "autogluon.core.metrics"):
-    if sub not in sys.modules:
-        _m = mock.MagicMock()
-        _m.__spec__ = None
-        if sub == "autogluon.core":
-            _m.__path__ = []
-        sys.modules[sub] = _m
+
+@pytest.fixture(autouse=True, scope="module")
+def isolated_sys_modules():
+    """Patch pandas/autogluon in sys.modules only for this test module; restored on module teardown."""
+    with mock.patch.dict(sys.modules, clear=False) as mocked_modules:
+        # Provide fresh mocks so that test-local mutations don't persist globally
+        mocked_modules["pandas"] = mock.MagicMock()
+        _ag = mock.MagicMock()
+        _ag.__path__ = []
+        _ag.__spec__ = None
+        mocked_modules["autogluon"] = _ag
+        for sub in ("autogluon.tabular", "autogluon.core", "autogluon.core.metrics"):
+            _m = mock.MagicMock()
+            _m.__spec__ = None
+            if sub == "autogluon.core":
+                _m.__path__ = []
+            mocked_modules[sub] = _m
+        yield
+
 
 from ..component import autogluon_models_full_refit  # noqa: E402
 
@@ -85,6 +87,10 @@ class TestAutogluonModelsFullRefitUnitTests:
 
             assert result.model_name == "LightGBM_BAG_L1_FULL"
             assert mock_model_artifact.metadata["display_name"] == "LightGBM_BAG_L1_FULL"
+            assert mock_model_artifact.metadata["context"]["data_config"] == {
+                "sampling_config": {},
+                "split_config": {},
+            }
             assert mock_model_artifact.metadata["context"]["task_type"] == "regression"
             assert mock_model_artifact.metadata["context"]["label_column"] == mock_predictor.label
             assert mock_model_artifact.metadata["context"]["metrics"]["test_data"] == eval_results
@@ -141,6 +147,33 @@ class TestAutogluonModelsFullRefitUnitTests:
             assert "cells" in notebook
         finally:
             shutil.rmtree(model_output_dir, ignore_errors=True)
+
+    @mock.patch("pandas.read_csv")
+    @mock.patch("autogluon.tabular.TabularPredictor")
+    def test_full_refit_handles_file_not_found_test_dataset(self, mock_predictor_class, mock_read_csv):
+        """Test that FileNotFoundError is raised when test_dataset path doesn't exist."""
+        mock_read_csv.side_effect = FileNotFoundError("Test dataset file not found")
+
+        mock_full_dataset = mock.MagicMock()
+        mock_full_dataset.path = "/nonexistent/full_dataset.csv"
+
+        mock_model_artifact = mock.MagicMock()
+        mock_model_artifact.path = "/tmp/refitted_model"
+        mock_model_artifact.metadata = {}
+
+        with pytest.raises(FileNotFoundError):
+            autogluon_models_full_refit.python_func(
+                model_name="LightGBM_BAG_L1",
+                test_dataset=mock_full_dataset,
+                predictor_path="/tmp/predictor",
+                sampling_config={},
+                split_config={},
+                model_config={},
+                pipeline_name=PIPELINE_NAME,
+                run_id=RUN_ID,
+                sample_row=SAMPLE_ROW,
+                model_artifact=mock_model_artifact,
+            )
 
     @mock.patch("pandas.read_csv")
     @mock.patch("autogluon.tabular.TabularPredictor")

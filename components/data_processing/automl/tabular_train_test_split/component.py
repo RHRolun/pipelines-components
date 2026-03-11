@@ -54,8 +54,10 @@ def tabular_train_test_split(  # noqa: D417
     test_size = split_config.get("test_size", DEFAULT_TEST_SIZE)
     random_state = split_config.get("random_state", DEFAULT_RANDOM_STATE)
 
-    sampled_train_dataset.uri += ".csv"
-    sampled_test_dataset.uri += ".csv"
+    if not sampled_train_dataset.uri or not sampled_train_dataset.uri.endswith(".csv"):
+        sampled_train_dataset.uri = (sampled_train_dataset.uri or "sampled_train_dataset") + ".csv"
+    if not sampled_test_dataset.uri or not sampled_test_dataset.uri.endswith(".csv"):
+        sampled_test_dataset.uri = (sampled_test_dataset.uri or "sampled_test_dataset") + ".csv"
 
     X = pd.read_csv(dataset.path)
     # Features and target

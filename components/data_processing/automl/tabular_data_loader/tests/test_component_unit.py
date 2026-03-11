@@ -128,6 +128,7 @@ class TestAutomlDataLoaderUnitTests:
                 full_dataset=full_dataset,
                 sampling_method="stratified",
                 label_column="target",
+                task_type="multiclass",
             )
 
             assert hasattr(result, "sample_config")
@@ -155,6 +156,7 @@ class TestAutomlDataLoaderUnitTests:
                     full_dataset=full_dataset,
                     sampling_method="stratified",
                     label_column=None,
+                    task_type="binary",
                 )
 
             mock_s3.get_object.assert_not_called()
@@ -176,6 +178,7 @@ class TestAutomlDataLoaderUnitTests:
                     full_dataset=full_dataset,
                     sampling_method="stratified",
                     label_column="label",
+                    task_type="binary",
                 )
 
     @mock.patch.dict("os.environ", mocked_env_variables)
@@ -194,6 +197,7 @@ class TestAutomlDataLoaderUnitTests:
                 full_dataset=full_dataset,
                 sampling_method="stratified",
                 label_column="target",
+                task_type="binary",
             )
 
             assert hasattr(result, "sample_config")

@@ -49,6 +49,15 @@ def automl_data_loader(
     PANDAS_CHUNK_SIZE = 10000  # Rows per batch for streaming read
     DEFAULT_RANDOM_STATE = 42
 
+    VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
+    VALID_TASK_TYPES = {"binary", "multiclass", "regression"}
+
+    if sampling_method is not None and sampling_method not in VALID_SAMPLING_METHODS:
+        raise ValueError(f"Invalid sampling_method '{sampling_method}'. Must be one of {VALID_SAMPLING_METHODS}.")
+
+    if task_type not in VALID_TASK_TYPES:
+        raise ValueError(f"Invalid task_type '{task_type}'. Must be one of {VALID_TASK_TYPES}.")
+
     if sampling_method is None:
         if task_type in ("binary", "multiclass"):
             sampling_method = "stratified"
@@ -56,6 +65,12 @@ def automl_data_loader(
             sampling_method = "random"
         logger.info("Sampling method derived from task_type=%s: using %s", task_type, sampling_method)
     else:
+        if sampling_method == "stratified" and task_type not in ("binary", "multiclass"):
+            raise ValueError(
+                "Stratified sampling is only available when task_type is "
+                "'binary' or 'multiclass' (classification tasks). "
+                f"Got task_type='{task_type}'."
+            )
         logger.info("Performing sampling: method=%s", sampling_method)
 
     def get_s3_client():
@@ -102,11 +117,15 @@ def automl_data_loader(
 
                 if accumulated_size + chunk_memory > max_size_bytes:
                     remaining_bytes = max_size_bytes - accumulated_size
+                    if remaining_bytes <= 0:
+                        # No remaining budget; do not take any more rows
+                        break
                     bytes_per_row = chunk_memory / len(chunk_df) if len(chunk_df) > 0 else 0
                     if bytes_per_row > 0:
-                        rows_to_take = max(1, int(remaining_bytes / bytes_per_row))
-                        chunk_df = chunk_df.head(rows_to_take)
-                        chunk_list.append(chunk_df)
+                        rows_to_take = int(remaining_bytes / bytes_per_row)
+                        if rows_to_take > 0:
+                            chunk_df = chunk_df.head(rows_to_take)
+                            chunk_list.append(chunk_df)
                     break
 
                 chunk_list.append(chunk_df)

@@ -15,10 +15,16 @@ Artifacts are written under model_artifact.path in a directory named <model_name
 layout is:
 
 - model_artifact.path / <model_name>_FULL / predictor / TabularPredictor (predictor.pkl inside); clone with only the
-refitted model. - model_artifact.path / <model_name>_FULL / metrics / metrics.json (evaluation results; leaderboard
-component reads this via display_name/metrics/metrics.json). - model_artifact.path / <model_name>_FULL / metrics /
-feature_importance.json - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json (classification
-only). - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
+refitted model.
+
+- model_artifact.path / <model_name>_FULL / metrics / metrics.json (evaluation results; leaderboard component reads this
+via display_name/metrics/metrics.json).
+
+- model_artifact.path / <model_name>_FULL / metrics / feature_importance.json
+
+- model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json (classification only).
+
+- model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
 
 Artifact metadata: display_name (<model_name>_FULL), context (data_config, task_type, label_column, model_config,
 location, metrics), and context.location.notebook (path to the notebook). Supported problem types: regression, binary,
@@ -54,7 +60,7 @@ exploration, then the best candidates are refitted on the full dataset for optim
 - **Stability**: alpha
 - **Dependencies**:
   - Kubeflow:
-    - Name: Pipelines, Version: >=2.14.4
+    - Name: Pipelines, Version: >=2.15.2
 - **Tags**:
   - training
   - automl
@@ -64,7 +70,6 @@ exploration, then the best candidates are refitted on the full dataset for optim
   - Approvers:
     - mprahl
     - nsingla
-    - LukaszCmielowski
   - Reviewers:
     - HumairAK
 
