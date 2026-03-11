@@ -80,11 +80,11 @@ def rag_templates_optimization(
 
     import os
     from collections import namedtuple
+    from copy import deepcopy
     from json import dump as json_dump
     from pathlib import Path
-    from typing import Any, Literal, Self
     from string import Formatter
-    from copy import deepcopy
+    from typing import Any, Literal, Self
 
     import pandas as pd
     import yaml as yml
@@ -109,8 +109,7 @@ def rag_templates_optimization(
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
 
     class NotebookCell:
-        """
-        Represents a single cell in a Jupyter notebook.
+        """Represents a single cell in a Jupyter notebook.
 
         Parameters
         ----------
@@ -138,13 +137,10 @@ def rag_templates_optimization(
                 self.outputs = []
 
         def to_dict(self) -> dict:
-            """
-            Convert cell to notebook JSON format.
+            """Convert cell to notebook JSON format.
 
-            Returns
-            -------
-            dict
-                Cell in notebook format.
+            Returns:
+                dict: Cell in notebook format.
             """
             cell_dict = {
                 "cell_type": self.cell_type,
@@ -162,13 +158,10 @@ def rag_templates_optimization(
             self,
             placeholders_mapping: dict,
         ) -> Self:
-            """
-            Formats cell source based on provided placeholders_mapping.
+            """Formats cell source based on provided placeholders_mapping.
 
-            Returns
-            -------
-            Self
-                Instance of NotebookCell.
+            Returns:
+                Self: Instance of NotebookCell.
             """
             if isinstance(self.source, list):
                 new_source = []
@@ -189,8 +182,7 @@ def rag_templates_optimization(
             return self
 
     class Notebook:
-        """
-        Builder class for creating and manipulating Jupyter notebooks.
+        """Builder class for creating and manipulating Jupyter notebooks.
 
         This class provides a fluent API for programmatically building notebooks
         by adding code and markdown cells, formatting content, and saving to disk.
@@ -208,7 +200,7 @@ def rag_templates_optimization(
         cells : list[NotebookCell] | None, default=None
             Notebook cells to build the notebook from.
 
-        Examples
+        Examples:
         --------
         >>> nb = Notebook(
             cells=[
@@ -241,13 +233,10 @@ def rag_templates_optimization(
             self.nbformat_minor = 4
 
         def to_dict(self) -> dict:
-            """
-            Convert notebook to dictionary format.
+            """Convert notebook to dictionary format.
 
-            Returns
-            -------
-            dict
-                Notebook in JSON format.
+            Returns:
+                dict: Notebook in JSON format.
             """
             return {
                 "cells": [cell.to_dict() for cell in self.cells],
@@ -257,8 +246,7 @@ def rag_templates_optimization(
             }
 
         def save(self, path: str | Path, indent: int = 2) -> "Notebook":
-            """
-            Save notebook to a file.
+            """Save notebook to a file.
 
             Parameters
             ----------
@@ -267,12 +255,10 @@ def rag_templates_optimization(
             indent : int, default=2
                 JSON indentation level.
 
-            Returns
-            -------
-            Notebook
-                Self for method chaining.
+            Returns:
+                Notebook: Self for method chaining.
 
-            Examples
+            Examples:
             --------
             >>> nb = Notebook()
             >>> nb.save("output.ipynb")
@@ -969,7 +955,7 @@ def rag_templates_optimization(
                 "rag_pattern = LlamaStackRAG(foundation_model=lsfoundationmodel, retriever=retriever)",
             ],
         ),
-        "MD_3_4": NotebookCell(
+        "MD_3_5": NotebookCell(
             cell_type="markdown",
             source=[
                 "---\n",
@@ -1191,8 +1177,7 @@ def rag_templates_optimization(
         test_data_key: str = "",
         input_data_key: str = "",
     ) -> dict[str, Any]:
-        """
-        Create a mapping from placeholder names to their values from output.json.
+        """Create a mapping from placeholder names to their values from output.json.
 
         This function extracts values from the output.json structure and creates
         a flat dictionary suitable for use with NotebookCell.format_source().
@@ -1214,10 +1199,12 @@ def rag_templates_optimization(
         }
 
         Args:
-            output_data: The parsed output.json data
+            output_data: The parsed output.json data.
+            test_data_key: Path to test data file within bucket used as input to AI4RAG.
+            input_data_key: Path to documents dir within bucket used as input to AI4RAG.
 
         Returns:
-            Dictionary mapping placeholder names to their values
+            Dictionary mapping placeholder names to their values.
         """
         mapping = {}
 
@@ -1259,20 +1246,18 @@ def rag_templates_optimization(
         test_data_key: str = "",
         input_data_key: str = "",
     ) -> None:
-        """
-        Generate a filled notebook from templates and output.json.
+        """Generate a filled notebook from templates and output.json.
 
         Args:
-            templates_dict: Dictionary of NotebookCell templates (e.g., INDEXING_CELLS_TEMPLATES)
-            output_json_path: Path to the output.json file
-            output_notebook_path: Path where to save the generated notebook
-            test_data_key: A path to test data file within a bucket used as an input to AI4RAG experiment.
-            input_data_key: A path to documents dir within a bucket used as an input to AI4RAG experiment.
+            templates_dict: Dictionary of NotebookCell templates (e.g., INDEXING_CELLS_TEMPLATES).
+            output_data: The parsed output.json data.
+            output_notebook_path: Path where to save the generated notebook.
+            test_data_key: Path to test data file within bucket used as input to AI4RAG.
+            input_data_key: Path to documents dir within bucket used as input to AI4RAG.
 
         Returns:
-            The generated Notebook object
+            None. The notebook is written to output_notebook_path.
         """
-
         placeholder_mapping = create_placeholder_mapping(
             output_data, test_data_key=test_data_key, input_data_key=input_data_key
         )

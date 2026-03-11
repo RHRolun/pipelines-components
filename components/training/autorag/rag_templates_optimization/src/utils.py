@@ -7,18 +7,16 @@ from langchain_core.documents import Document
 
 
 def load_search_space_from(file: TextIO | Path) -> AI4RAGSearchSpace:
-    """
-    Loads a search space defined in a .yml file.
-    The .yml file must conform to the _autorag/search_space_preparation/search_space_prep_report_schema.yml_.
+    """Load a search space from a .yml file.
+
+    The .yml must conform to search_space_prep_report_schema. Returns an AI4RAGSearchSpace instance.
 
     Args:
-      file
-          A Path-like or File-like object pointing to the .yml file defining the search space.
+        file: Path or file-like object to the .yml defining the search space.
 
     Returns:
-
+        AI4RAGSearchSpace instance.
     """
-
     return AI4RAGSearchSpace(
         [
             Parameter("inference_model_id", "C", values=["mistral", "llama"]),
@@ -36,20 +34,14 @@ def load_search_space_from(file: TextIO | Path) -> AI4RAGSearchSpace:
 
 
 def load_as_langchain_doc(path: str | Path) -> list[Document]:
-    """
-    Given path to a text-based file or a folder thereof load everything to memory and
-    return as a list of langchain `Document` objects.
+    """Load text file(s) into a list of langchain Document objects.
 
     Args:
-        path
-            A local path to either a text file or a folder of text files.
+        path: Local path to a text file or folder of text files.
+
     Returns:
-        A list of langchain `Document` objects.
-
-    Note:
-
+        List of langchain Document objects.
     """
-
     if isinstance(path, str):
         path = Path(path)
 

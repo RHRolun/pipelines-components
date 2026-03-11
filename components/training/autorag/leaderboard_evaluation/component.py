@@ -441,7 +441,7 @@ def leaderboard_evaluation(
         )
         for i in range(ncols)
     ]
-    # Min widths: col 0 = Pattern Name, col 1 = first metric, 7/12 = model IDs; two-line headers need room for longer part
+    # Min widths: col 0/1 = name & metric; 7/12 = model IDs; two-line headers need room for longest part
     width_rem = []
     for i in range(ncols):
         if i in (7, 12):

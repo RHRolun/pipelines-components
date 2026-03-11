@@ -1,9 +1,4 @@
-"""
-This module contains proxy classes for respective classes from `ai4rag` module.
-The proxies defined here exist so to ease the local execution, debugging or
-unit/integration-testing by allowing mocked runs of `ai4rag` code without an
-external llama-stack server setup.
-"""
+"""Proxy classes for ai4rag for local execution and testing without llama-stack."""
 
 from typing import Sequence
 
@@ -14,27 +9,33 @@ from ai4rag.utils.event_handler.event_handler import BaseEventHandler, LogLevel
 
 
 class StdoutEventHandler(BaseEventHandler):
+    """Event handler that delegates to a wrapped handler."""
 
     def __init__(self, event_handler: BaseEventHandler) -> None:
+        """Wrap the given event handler."""
         self.event_handler = event_handler
         super().__init__()
 
     def on_status_change(self, level: LogLevel, message: str, step: str | None = None) -> None:
+        """No-op for status changes."""
         pass
 
     def on_pattern_creation(self, payload: dict, evaluation_results: list, **kwargs) -> None:
+        """No-op for pattern creation."""
         pass
 
 
 class DisconnectedAI4RAGExperiment(AI4RAGExperiment):
+    """AI4RAG experiment that returns mocked search results."""
 
     def __init__(self, rag_experiment: AI4RAGExperiment) -> None:
+        """Store the wrapped experiment; metrics default to faithfulness."""
         self.rag_experiment = rag_experiment
         self.metrics = ["faithfulness"]
         # self.metrics = rag_experiment.metrics
 
     def search(self, **kwargs) -> Sequence[EvaluationResult]:
-
+        """Return mocked evaluation results."""
         # set mocked self.results and return
 
         self.results = ExperimentResults()
@@ -128,13 +129,15 @@ class DisconnectedAI4RAGExperiment(AI4RAGExperiment):
 
 
 class DisconnectedModelsPreSelector(ModelsPreSelector):
+    """ModelsPreSelector that returns mocked evaluation results."""
 
     def __init__(self, mps: ModelsPreSelector) -> None:
+        """Wrap the given ModelsPreSelector; use its metric."""
         self.mps: ModelsPreSelector = mps
         self.metric = mps.metric
 
     def evaluate_patterns(self):
-
+        """Set evaluation_results to mocked data."""
         self.evaluation_results = [
             {
                 "embedding_model": "granite_emb1",

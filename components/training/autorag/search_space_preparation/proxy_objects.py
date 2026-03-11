@@ -1,23 +1,18 @@
-"""
-This module contains proxy classes for respective classes from `ai4rag` module.
-The proxies defined here exist so to ease the local execution, debugging or
-unit/integration-testing by allowing mocked runs of `ai4rag` code without an
-external llama-stack server setup.
-"""
+"""Proxy classes for ai4rag for local execution and testing without llama-stack."""
 
 from ai4rag.core.experiment.mps import ModelsPreSelector
-from ai4rag.rag.embedding.base_model import EmbeddingModel
-from ai4rag.rag.foundation_models.base_model import FoundationModel
 
 
 class DisconnectedModelsPreSelector(ModelsPreSelector):
+    """ModelsPreSelector that returns mocked evaluation results."""
 
     def __init__(self, mps: ModelsPreSelector) -> None:
+        """Wrap the given ModelsPreSelector; use its metric."""
         self.mps: ModelsPreSelector = mps
         self.metric = mps.metric
 
     def evaluate_patterns(self):
-
+        """Set evaluation_results to mocked data."""
         self.evaluation_results = [
             {
                 "embedding_model": "granite_emb1",
