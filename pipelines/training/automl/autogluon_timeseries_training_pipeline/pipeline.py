@@ -10,7 +10,7 @@ from kfp import dsl
         "TimeSeriesDataFrame format (item_id, timestamp, target), trains multiple AutoGluon TimeSeries models "
         "(local statistical and global deep learning), ranks them by the chosen eval metric, and produces a "
         "leaderboard and the top N trained predictors for deployment. Supports optional known covariates and "
-        "configurable frequency."
+        "configurable prediction_length."
     ),
     pipeline_config=dsl.PipelineConfig(
         workspace=dsl.WorkspaceConfig(
@@ -32,7 +32,7 @@ def autogluon_timeseries_training_pipeline(
     id_column: str,
     timestamp_column: str,
     known_covariates_names: Optional[List[str]] = None,
-    freq: Optional[str] = None,
+    prediction_length: int = 1,
     top_n: int = 3,
 ):
     """AutoGluon Time Series Training Pipeline (draft design).
@@ -85,9 +85,9 @@ def autogluon_timeseries_training_pipeline(
       steps in the forecast horizon (e.g. holidays, promotions). If provided, the predictor expects
       these columns in the data and at prediction time requires future values in ``known_covariates``.
       See :attr:`~autogluon.timeseries.TimeSeriesPredictor.known_covariates_names`.
-    - **freq**: Optional pandas frequency string (e.g. ``"D"`` for daily, ``"h"`` for hourly). If
-      not set, frequency is inferred from the data. Set when timestamps are irregular or when
-      resampling to a different frequency. See :attr:`~autogluon.timeseries.TimeSeriesPredictor.freq`.
+    - **prediction_length**: Number of time steps to forecast (horizon length). Required for
+      training and evaluation; used for validation split and by the predictor. Positive integer
+      (default: 1).
     - **top_n**: Number of top models to select for the leaderboard and output (default: 3). Positive
       integer.
 
@@ -99,7 +99,7 @@ def autogluon_timeseries_training_pipeline(
     **Raises**
 
     Expected to raise on: missing or inaccessible S3 file; missing ``target``, ``id_column``, or
-    ``timestamp_column`` in the data; invalid ``freq`` or ``top_n``; or failure to build
+    ``timestamp_column`` in the data; invalid ``prediction_length`` or ``top_n``; or failure to build
     TimeSeriesDataFrame (e.g. duplicate item_id/timestamp pairs).
 
     **Example**
@@ -112,7 +112,7 @@ def autogluon_timeseries_training_pipeline(
             id_column="product_id",
             timestamp_column="date",
             known_covariates_names=["is_holiday", "promo"],
-            freq="D",
+            prediction_length=14,
             top_n=3,
         )
     """

@@ -48,10 +48,10 @@ TimeSeriesDataFrame; the result uses ``timestamp`` as the second index level.
 - **known_covariates_names**: Optional list of column names that are known in advance for all steps in the forecast
 horizon (e.g. holidays, promotions). If provided, the predictor expects these columns in the data and at prediction time
 requires future values in ``known_covariates``. See
-:attr:`~autogluon.timeseries.TimeSeriesPredictor.known_covariates_names`. - **freq**: Optional pandas frequency string
-(e.g. ``"D"`` for daily, ``"h"`` for hourly). If not set, frequency is inferred from the data. Set when timestamps are
-irregular or when resampling to a different frequency. See :attr:`~autogluon.timeseries.TimeSeriesPredictor.freq`. -
-**top_n**: Number of top models to select for the leaderboard and output (default: 3). Positive integer.
+:attr:`~autogluon.timeseries.TimeSeriesPredictor.known_covariates_names`. - **prediction_length**: Number of time steps
+to forecast (horizon length). Required for training and evaluation; used for validation split and by the predictor.
+Positive integer (default: 1). - **top_n**: Number of top models to select for the leaderboard and output (default: 3).
+Positive integer.
 
 **Returns**
 
@@ -61,13 +61,14 @@ top N models), and optionally a generated notebook for inference.
 **Raises**
 
 Expected to raise on: missing or inaccessible S3 file; missing ``target``, ``id_column``, or ``timestamp_column`` in the
-data; invalid ``freq`` or ``top_n``; or failure to build TimeSeriesDataFrame (e.g. duplicate item_id/timestamp pairs).
+data; invalid ``prediction_length`` or ``top_n``; or failure to build TimeSeriesDataFrame (e.g. duplicate
+item_id/timestamp pairs).
 
 **Example**
 
 pipeline = autogluon_timeseries_training_pipeline( train_data_secret_name="my-s3-secret",
 train_data_bucket_name="my-bucket", train_data_file_key="ts/sales.csv", target="sales", id_column="product_id",
-timestamp_column="date", known_covariates_names=["is_holiday", "promo"], freq="D", top_n=3, )
+timestamp_column="date", known_covariates_names=["is_holiday", "promo"], prediction_length=14, top_n=3, )
 
 ## Inputs 📥
 
@@ -80,7 +81,7 @@ timestamp_column="date", known_covariates_names=["is_holiday", "promo"], freq="D
 | `id_column` | `str` | `None` |  |
 | `timestamp_column` | `str` | `None` |  |
 | `known_covariates_names` | `Optional[List[str]]` | `None` |  |
-| `freq` | `Optional[str]` | `None` |  |
+| `prediction_length` | `int` | `1` |  |
 | `top_n` | `int` | `3` |  |
 
 ## Metadata 🗂️
