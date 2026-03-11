@@ -171,7 +171,7 @@ def autogluon_tabular_training_pipeline(
     )
 
     # Stage 2: Model Refitting
-    # Refit each top model on the full training dataset
+    # Refit each top model on the training+validation dataset
 
     with dsl.ParallelFor(items=selection_task.outputs["top_models"], parallelism=2) as model_name:
         refit_full_task = autogluon_models_full_refit(

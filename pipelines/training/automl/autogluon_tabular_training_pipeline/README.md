@@ -131,7 +131,7 @@ _Note_: There is one `autogluon-models-full-refit/<task_id>/model_artifact/<Mode
 
 For loading:
 
-- Load a refitted model for deployment or notebook exploration using `TabularPredictor.load(<.../model_artifact/<ModelName>_FULL>)`
+- Load a refitted model for deployment or notebook exploration using `TabularPredictor.load(<.../model_artifact/<ModelName>_FULL>/predictor)`
 - Model metrics and feature importances are always at `metrics/` under each model directory.
 - The leaderboard HTML is at `leaderboard-evaluation/<task_id>/html_artifact`.
 

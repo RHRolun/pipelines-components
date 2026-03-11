@@ -65,6 +65,12 @@ def automl_data_loader(
             sampling_method = "random"
         logger.info("Sampling method derived from task_type=%s: using %s", task_type, sampling_method)
     else:
+        if sampling_method == "stratified" and task_type not in ("binary", "multiclass"):
+            raise ValueError(
+                "Stratified sampling is only available when task_type is "
+                "'binary' or 'multiclass' (classification tasks). "
+                f"Got task_type='{task_type}'."
+            )
         logger.info("Performing sampling: method=%s", sampling_method)
 
     def get_s3_client():

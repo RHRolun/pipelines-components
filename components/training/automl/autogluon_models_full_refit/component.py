@@ -177,6 +177,10 @@ def autogluon_models_full_refit(
     # Notebook generation
 
     # TODO: Move to build package in next stages
+    # NOTE: The generated notebook expects that a connection secret is available in the environment where it is run.
+    # This connection should provide the same environment variables as required by the pipeline input secret,
+    # i.e. AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, and AWS_DEFAULT_REGION,
+    # plus the variable AWS_S3_BUCKET for S3 bucket access.
 
     REGRESSION = {
         "cells": [
