@@ -43,8 +43,8 @@ def test_data_loader(test_data_bucket_name: str, test_data_path: str, test_data:
     if not test_data_bucket_name:
         errors.append("test_data_bucket_name must be a non-empty string")
 
-    test_data_path, test_data_suffix = test_data_path.rsplit(".", 1)
-    if not test_data_path or test_data_suffix != ".json":
+    test_data_without_suffix, test_data_suffix = test_data_path.rsplit(".", 1)
+    if not test_data_without_suffix or test_data_suffix != ".json":
         errors.append("test_data_path must point to a JSON file")
 
     if errors:
