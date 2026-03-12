@@ -12,13 +12,14 @@ class TestSearchSpacePreparationUnitTests:
         assert hasattr(search_space_preparation, "python_func")
 
     def test_component_with_default_parameters(self):
-        """Test component with valid input parameters."""
-        # TODO: Implement unit tests for your component
+        """Test component has expected interface (required args)."""
+        import inspect
 
-        # Example test structure:
-        result = search_space_preparation.python_func(input_param="test_value")
-        assert isinstance(result, str)
-        assert "test_value" in result
+        sig = inspect.signature(search_space_preparation.python_func)
+        params = list(sig.parameters)
+        assert "test_data" in params
+        assert "extracted_text" in params
+        assert "search_space_prep_report" in params
 
     # TODO: Add more comprehensive unit tests
     # @mock.patch("external_library.some_function")

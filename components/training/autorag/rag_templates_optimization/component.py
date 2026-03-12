@@ -87,7 +87,6 @@ def rag_templates_optimization(
     from collections import namedtuple
     from json import dump as json_dump, load as json_load
     from pathlib import Path
-    from typing import Any, Literal, Self
     from string import Formatter
 
     import pandas as pd
@@ -115,8 +114,7 @@ def rag_templates_optimization(
     )
 
     class NotebookCell:
-        """
-        Represents a single cell in a Jupyter notebook.
+        """Represents a single cell in a Jupyter notebook.
 
         Parameters
         ----------
@@ -144,13 +142,10 @@ def rag_templates_optimization(
                 self.outputs = []
 
         def to_dict(self) -> dict:
-            """
-            Convert cell to notebook JSON format.
+            """Convert cell to notebook JSON format.
 
-            Returns
-            -------
-            dict
-                Cell in notebook format.
+            Returns:
+                dict: Cell in notebook format.
             """
             cell_dict = {
                 "cell_type": self.cell_type,
@@ -168,13 +163,10 @@ def rag_templates_optimization(
             self,
             placeholders_mapping: dict,
         ) -> Self:
-            """
-            Formats cell source based on provided placeholders_mapping.
+            """Formats cell source based on provided placeholders_mapping.
 
-            Returns
-            -------
-            Self
-                Instance of NotebookCell.
+            Returns:
+                Self: Instance of NotebookCell.
             """
             if isinstance(self.source, list):
                 new_source = []
@@ -197,8 +189,7 @@ def rag_templates_optimization(
             return self
 
     class Notebook:
-        """
-        Builder class for creating and manipulating Jupyter notebooks.
+        """Builder class for creating and manipulating Jupyter notebooks.
 
         This class provides a fluent API for programmatically building notebooks
         by adding code and markdown cells, formatting content, and saving to disk.
@@ -216,7 +207,7 @@ def rag_templates_optimization(
         cells : list[NotebookCell] | None, default=None
             Notebook cells to build the notebook from.
 
-        Examples
+        Examples:
         --------
         >>> nb = Notebook(
             cells=[
@@ -249,13 +240,10 @@ def rag_templates_optimization(
             self.nbformat_minor = 4
 
         def to_dict(self) -> dict:
-            """
-            Convert notebook to dictionary format.
+            """Convert notebook to dictionary format.
 
-            Returns
-            -------
-            dict
-                Notebook in JSON format.
+            Returns:
+                dict: Notebook in JSON format.
             """
             return {
                 "cells": [cell.to_dict() for cell in self.cells],
@@ -265,8 +253,7 @@ def rag_templates_optimization(
             }
 
         def save(self, path: str | Path, indent: int = 2) -> "Notebook":
-            """
-            Save notebook to a file.
+            """Save notebook to a file.
 
             Parameters
             ----------
@@ -275,12 +262,10 @@ def rag_templates_optimization(
             indent : int, default=2
                 JSON indentation level.
 
-            Returns
-            -------
-            Notebook
-                Self for method chaining.
+            Returns:
+                Notebook: Self for method chaining.
 
-            Examples
+            Examples:
             --------
             >>> nb = Notebook()
             >>> nb.save("output.ipynb")
@@ -365,8 +350,7 @@ def rag_templates_optimization(
         chat_model_url: str = "",
         embedding_model_url: str = "",
     ) -> dict[str, Any]:
-        """
-        Create a mapping from placeholder names to their values from output.json.
+        """Create a mapping from placeholder names to their values from output.json.
 
         This function extracts values from the output.json structure and creates
         a flat dictionary suitable for use with NotebookCell.format_source().
@@ -395,7 +379,7 @@ def rag_templates_optimization(
             embedding_model_url: Embedding model url.
 
         Returns:
-            Dictionary mapping placeholder names to their values
+            Dictionary mapping placeholder names to their values.
         """
         mapping = {}
 
@@ -446,20 +430,18 @@ def rag_templates_optimization(
         test_data_key: str = "",
         input_data_key: str = "",
     ) -> None:
-        """
-        Generate a filled notebook from templates and output.json.
+        """Generate a filled notebook from templates and output.json.
 
         Args:
-            templates_dict: Dictionary of NotebookCell templates (e.g., INDEXING_CELLS_TEMPLATES)
-            output_json_path: Path to the output.json file
-            output_notebook_path: Path where to save the generated notebook
-            test_data_key: A path to test data file within a bucket used as an input to AI4RAG experiment.
-            input_data_key: A path to documents dir within a bucket used as an input to AI4RAG experiment.
+            templates_dict: Dictionary of NotebookCell templates (e.g., INDEXING_CELLS_TEMPLATES).
+            output_data: The parsed output.json data.
+            output_notebook_path: Path where to save the generated notebook.
+            test_data_key: Path to test data file within bucket used as input to AI4RAG.
+            input_data_key: Path to documents dir within bucket used as input to AI4RAG.
 
         Returns:
-            The generated Notebook object
+            None. The notebook is written to output_notebook_path.
         """
-
         placeholder_mapping = create_placeholder_mapping(
             output_data,
             test_data_key=test_data_key,
@@ -689,6 +671,20 @@ def rag_templates_optimization(
         embedding_from_idx = idx.get("embedding") or idx.get("embeddings") or {}
         embeddings = rp.get("embeddings") or rp.get("embedding") or embedding_from_idx
         retrieval = rp.get("retrieval") or {}
+
+        # ai4rag retrieval: search_mode is "hybrid" | "vector"; ranker_* used when search_mode is hybrid
+        def _ret(key: str, default=None):
+            return retrieval.get(key) if isinstance(retrieval, dict) else default
+
+        def _rp(key: str, default=None):
+            return rp.get(key) if isinstance(rp, dict) else default
+
+        retrieval_method = _ret("method") or _ret("retrieval_method") or _rp("retrieval_method") or "simple"
+        number_of_chunks = _ret("number_of_chunks") or _rp("number_of_chunks") or 5
+        search_mode = _ret("search_mode") or _rp("search_mode")
+        ranker_strategy = _ret("ranker_strategy") or _rp("ranker_strategy")
+        ranker_k = _ret("ranker_k") if _ret("ranker_k") is not None else _rp("ranker_k")
+        ranker_alpha = _ret("ranker_alpha") if _ret("ranker_alpha") is not None else _rp("ranker_alpha")
         generation = rp.get("generation") or {}
         # embedding model_id: from indexing_params.embedding (ai4rag), or rag_params, or flat embedding_model
         embedding_model_id = None
@@ -740,8 +736,12 @@ def rag_templates_optimization(
                     ),
                 },
                 "retrieval": {
-                    "method": retrieval.get("method", "simple"),
-                    "number_of_chunks": retrieval.get("number_of_chunks", 5),
+                    "method": retrieval_method,
+                    "number_of_chunks": number_of_chunks,
+                    **({"search_mode": search_mode} if search_mode is not None else {}),
+                    **({"ranker_strategy": ranker_strategy} if ranker_strategy is not None else {}),
+                    **({"ranker_k": ranker_k} if ranker_k is not None else {}),
+                    **({"ranker_alpha": ranker_alpha} if ranker_alpha is not None else {}),
                 },
                 "generation": {
                     "model_id": generation_model_id or "",

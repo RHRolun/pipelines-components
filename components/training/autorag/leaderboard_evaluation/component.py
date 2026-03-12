@@ -14,7 +14,8 @@ def leaderboard_evaluation(
     Reads pattern.json from each subdirectory of rag_patterns (produced by
     rag_templates_optimization) and generates a single HTML table: Pattern_Name,
     mean_* metrics (e.g. mean_answer_correctness, mean_faithfulness), then
-    config columns (chunking.*, embeddings.model_id, retrieval.*,
+    config columns (chunking.*, embeddings.model_id, retrieval.* including
+    search_mode ("hybrid" | "vector" per ai4rag), ranker_strategy,
     generation.model_id). Writes the HTML to html_artifact.path.
 
     Args:
@@ -116,12 +117,28 @@ def leaderboard_evaluation(
             return "optimization metric"
         return metric.replace("_", " ").strip()
 
+    def _header_two_lines(label: str) -> str:
+        """Split header by '.'; if second part has multiple words, split at last space to allow narrower column."""
+        if "." in label:
+            parts = label.split(".", 1)
+            line1 = parts[0]
+            line2 = parts[1].replace("_", " ") if len(parts) > 1 else ""
+            if line2:
+                if " " in line2:
+                    last_space = line2.rfind(" ")
+                    line2a = line2[:last_space]
+                    line2b = line2[last_space + 1 :]
+                    return html.escape(line1) + "<br>" + html.escape(line2a) + "<br>" + html.escape(line2b)
+                return html.escape(line1) + "<br>" + html.escape(line2)
+        return html.escape(label.replace("_", " "))
+
     def _build_leaderboard_html(
         header_row: str,
         table_body: str,
         best_pattern_name: str,
         num_patterns: int,
         eval_metric: str,
+        colgroup_html: str = "",
     ) -> str:
         """Build a styled HTML document for the RAG leaderboard (aligned with AutoML leaderboard style)."""
         metric_label = html.escape(_metric_display_name(eval_metric))
@@ -215,22 +232,29 @@ def leaderboard_evaluation(
     .leaderboard-wrap table {{
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      table-layout: auto;
     }}
     .leaderboard-wrap th {{
       text-align: left;
-      padding: 1rem 1.25rem;
+      padding: 0.5rem 0.5rem;
       background: var(--surface-hover);
       color: var(--text-muted);
       font-weight: 600;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.03em;
       border-bottom: 1px solid var(--border);
+      line-height: 1.25;
     }}
     .leaderboard-wrap td {{
-      padding: 1rem 1.25rem;
+      padding: 0.5rem 0.5rem;
       border-bottom: 1px solid var(--border);
+    }}
+    .leaderboard-wrap th,
+    .leaderboard-wrap td {{
+      overflow-wrap: break-word;
+      word-break: break-word;
     }}
     .leaderboard-wrap tr:last-child td {{
       border-bottom: none;
@@ -273,6 +297,7 @@ def leaderboard_evaluation(
     <div class="card">
       <div class="leaderboard-wrap">
         <table>
+{colgroup_html}
           <thead>
             <tr>{header_row}</tr>
           </thead>
@@ -338,6 +363,8 @@ def leaderboard_evaluation(
         "embeddings.model_id",
         "retrieval.method",
         "retrieval.number_of_chunks",
+        "retrieval.search_mode",
+        "retrieval.ranker_strategy",
         "generation.model_id",
     ]
     # Build metric columns present in data (preferred order above). Support flat scores
@@ -355,10 +382,18 @@ def leaderboard_evaluation(
         if col not in metric_columns:
             metric_columns.append(col)
 
+    # Put optimization metric column second (right after Pattern_Name)
+    opt_metric_col = _metric_to_mean_key(optimization_metric or "faithfulness")
+    if opt_metric_col in metric_columns:
+        other_metrics = [c for c in metric_columns if c != opt_metric_col]
+        metric_columns = [opt_metric_col] + other_metrics
+
     config_columns = list(leaderboard_config_columns)
     headers = ["Pattern_Name"] + metric_columns + config_columns
-    header_row = "".join("<th>%s</th>" % html.escape(h) for h in headers)
+    header_row = "".join("<th>%s</th>" % _header_two_lines(h) for h in headers)
 
+    # Build rows and collect cell values for dynamic column width computation
+    rows_cells = []
     rows = []
     for i, e in enumerate(evaluations):
         pattern_name = e.get("name") or e.get("pattern_name") or (e.get("rag_pattern") or {}).get("name", "—")
@@ -370,8 +405,7 @@ def leaderboard_evaluation(
             or _merge_params(e.get("indexing_params") or {}, e.get("rag_params") or {})
         )
 
-        cells = [html.escape(str(pattern_name))]
-
+        cells = [str(pattern_name)]
         for col in metric_columns:
             metric_name = col.replace("mean_", "", 1)
             info = scores.get(metric_name) or {}
@@ -381,17 +415,62 @@ def leaderboard_evaluation(
             else:
                 cell = ""
             cells.append(cell)
-
         for col in config_columns:
             val = _get_config_value(merged, col) if merged else None
-            if val is not None:
-                cells.append(str(val))
+            if val is not None and (val != "" or col != "retrieval.ranker_strategy"):
+                if isinstance(val, dict):
+                    cells.append(json.dumps(val, sort_keys=True))
+                else:
+                    cells.append(str(val))
+            elif col == "retrieval.ranker_strategy":
+                cells.append("-")
             else:
                 cells.append("")
+        rows_cells.append(cells)
         tr_class = ' class="rank-1"' if i == 0 else ""
         rows.append("<tr" + tr_class + ">" + "".join("<td>%s</td>" % html.escape(c) for c in cells) + "</tr>")
 
     table_body = "".join(rows)
+
+    # Dynamic column widths from content (header + cells); embeddings (7) and generation (12) get higher min
+    ncols = len(headers)
+    column_max_len = [
+        max(
+            len(headers[i]),
+            max((len(rows_cells[r][i]) for r in range(len(rows_cells)))) if rows_cells else 0,
+        )
+        for i in range(ncols)
+    ]
+    # Min widths: col 0/1 = name & metric; 7/12 = model IDs; two-line headers need room for longest part
+    width_rem = []
+    for i in range(ncols):
+        if i in (7, 12):
+            min_rem = 18  # embeddings.model_id, generation.model_id
+        elif i == 0:
+            min_rem = 10  # Pattern Name – single line
+        elif i == 1:
+            min_rem = 12  # First metric (e.g. mean faithfulness) – single line
+        else:
+            min_rem = 4
+        # Two-line (or three-line) headers: use max segment length so each line fits
+        if "." in headers[i]:
+            parts = headers[i].split(".", 1)
+            line1_len = len(parts[0])
+            line2 = parts[1].replace("_", " ") if len(parts) > 1 else ""
+            if " " in line2:
+                last_space = line2.rfind(" ")
+                seg_lens = [line1_len, len(line2[:last_space]), len(line2[last_space + 1 :])]
+            else:
+                seg_lens = [line1_len, len(line2)] if line2 else [line1_len]
+            min_for_two_line = max(seg_lens) * 1.0
+            min_rem = max(min_rem, min_for_two_line)
+        w = max(min_rem, min(32, 0.6 * column_max_len[i]))
+        width_rem.append(w)
+    colgroup_html = (
+        "          <colgroup>\n"
+        + "\n".join('            <col style="width: %.1frem">' % width_rem[i] for i in range(ncols))
+        + "\n          </colgroup>"
+    )
 
     best_pattern_name = "—"
     if evaluations:
@@ -408,6 +487,7 @@ def leaderboard_evaluation(
         best_pattern_name=best_pattern_name,
         num_patterns=len(evaluations),
         eval_metric=optimization_metric or "faithfulness",
+        colgroup_html=colgroup_html,
     )
 
     Path(html_artifact.path).parent.mkdir(parents=True, exist_ok=True)
