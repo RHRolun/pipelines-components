@@ -83,12 +83,18 @@ def automl_data_loader(
         if (access_key and not secret_key) or (secret_key and not access_key):
             raise ValueError(
                 "S3 credentials misconfigured: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either "
-                "both be set and non-empty, or both be unset. Check a Kubernetes secret."
+                "both be set and non-empty, or both be unset. Check the Kubernetes secret or environment configuration."
             )
         if not access_key and not secret_key:
             raise ValueError(
                 "S3 credentials missing: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be provided via "
                 "a Kubernetes secret or environment configuration when using s3:// dataset URIs."
+            )
+
+        if not endpoint_url:
+            raise ValueError(
+                "S3 credentials missing: AWS_S3_ENDPOINT must be provided via "
+                "a Kubernetes secret or environment configuration."
             )
 
         return boto3.client(
