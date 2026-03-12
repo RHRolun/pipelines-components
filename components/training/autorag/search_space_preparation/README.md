@@ -41,8 +41,8 @@ This list, if too long, will undergo models preselection (limiting). |
     - Name: Pipelines, Version: >=2.15.2
   - External Services:
     - Name: ai4rag, Version: >=1.0.0
-    - Name: pyYaml
-    - Name: pandas
+    - Name: pyYaml, Version: >=6.0
+    - Name: pandas, Version: >=2.0.0
 - **Tags**:
   - training
   - autorag
@@ -50,5 +50,8 @@ This list, if too long, will undergo models preselection (limiting). |
   - optimization
 - **Last Verified**: 2026-02-01 23:39:58.580000+00:00
 - **Owners**:
-  - Approvers: None
-  - Reviewers: None
+  - Approvers:
+    - LukaszCmielowski
+  - Reviewers:
+    - filip-komarzyniec
+    - witold-nowogorski
