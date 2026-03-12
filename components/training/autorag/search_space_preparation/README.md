@@ -6,16 +6,14 @@
 
 Runs an AutoRAG experiment's first phase which includes:
 
-- AutoRAG search space creation given the user's constraints, - embedding and foundation models number limitation and
-initial selection,
+- AutoRAG search space creation given the user's constraints, - embedding and foundation models number limitation and initial selection,
 
-Generates a .yml-formatted report including results of this experiment's phase. For its exact content please refer to
-the `search_space_prep_report_schema.yml` file.
+Generates a .yml-formatted report including results of this experiment's phase. For its exact content please refer to the `search_space_prep_report_schema.yml` file.
 
 ## Inputs 📥
 
 | Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
+| --------- | ---- | ------- | ----------- |
 | `test_data` | `dsl.Input[dsl.Artifact]` | `None` | A path to a .json file containing questions and expected answers that can be retrieved from input documents. Necessary baseline for calculating quality metrics of RAG pipeline. |
 | `extracted_text` | `dsl.Input[dsl.Artifact]` | `None` | A path to either a single file or a folder of files. The document(s) will be sampled and used during the models selection process. |
 | `search_space_prep_report` | `dsl.Output[dsl.Artifact]` | `None` | kfp-enforced argument specifying an output artifact. Provided by kfp backend automatically. |
@@ -36,7 +34,7 @@ the `search_space_prep_report_schema.yml` file.
     - Name: Pipelines, Version: >=2.15.2
   - External Services:
     - Name: ai4rag, Version: >=1.0.0
-    - Name: pyYaml, Version: >=6.0
+    - Name: pyYaml, Version: >=6.0.0
     - Name: pandas, Version: >=2.0.0
 - **Tags**:
   - training

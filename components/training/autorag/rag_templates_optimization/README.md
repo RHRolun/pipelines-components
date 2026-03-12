@@ -11,7 +11,7 @@ Carries out the iterative RAG optimization process.
 ## Inputs 📥
 
 | Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
+| --------- | ---- | ------- | ----------- |
 | `extracted_text` | `dsl.InputPath(dsl.Artifact)` | `None` | A path pointing to a folder containg extracted texts from input documents. |
 | `test_data` | `dsl.InputPath(dsl.Artifact)` | `None` | A path pointing to test data used for evaluating RAG pattern quality. |
 | `search_space_prep_report` | `dsl.InputPath(dsl.Artifact)` | `None` | A path pointing to a .yml file containig short report on the experiment's first phase (search space preparation). |
