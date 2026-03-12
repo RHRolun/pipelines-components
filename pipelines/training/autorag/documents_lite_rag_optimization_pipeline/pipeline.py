@@ -19,9 +19,7 @@ from kfp_components.components.training.autorag.search_space_preparation.compone
     search_space_preparation,
 )
 
-SUPPORTED_OPTIMIZATION_METRICS = frozenset(
-    {"faithfulness", "answer_correctness", "context_correctness"}
-)
+SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
 
 
 @dsl.pipeline(

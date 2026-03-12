@@ -174,11 +174,7 @@ def search_space_preparation(
 
         elif path.is_file():
             with path.open("r", encoding="utf-8") as doc:
-                documents.append(
-                    Document(
-                        page_content=doc.read(), metadata={"document_id": path.stem}
-                    )
-                )
+                documents.append(Document(page_content=doc.read(), metadata={"document_id": path.stem}))
 
         return documents
 
@@ -191,14 +187,8 @@ def search_space_preparation(
         """
         if in_memory_vector_store_scenario:
             gen_model_md = _get_model_metadata_from(chat_model_url, chat_model_token)
-            em_model_md = _get_model_metadata_from(
-                embedding_model_url, embedding_model_token
-            )
-            em_model_params = (
-                {"context_length": em_model_md["max_model_len"]}
-                if em_model_md["max_model_len"]
-                else {}
-            )
+            em_model_md = _get_model_metadata_from(embedding_model_url, embedding_model_token)
+            em_model_params = {"context_length": em_model_md["max_model_len"]} if em_model_md["max_model_len"] else {}
             params = [
                 Parameter(
                     "foundation_model",
@@ -230,21 +220,13 @@ def search_space_preparation(
         else:
             payload = {}
             if generation_models:
-                payload["foundation_models"] = [
-                    {"model_id": gm} for gm in generation_models
-                ]
+                payload["foundation_models"] = [{"model_id": gm} for gm in generation_models]
             if embeddings_models:
-                payload["embedding_models"] = [
-                    {"model_id": gm} for gm in embeddings_models
-                ]
+                payload["embedding_models"] = [{"model_id": gm} for gm in embeddings_models]
 
-            return prepare_search_space_with_llama_stack(
-                payload, client=client.llama_stack
-            )
+            return prepare_search_space_with_llama_stack(payload, client=client.llama_stack)
 
-    def represent_model_instance(
-        dumper, model: BaseFoundationModel | BaseEmbeddingModel
-    ) -> yml.Node:
+    def represent_model_instance(dumper, model: BaseFoundationModel | BaseEmbeddingModel) -> yml.Node:
         """Helper method instructing the yml.Dumper on how to serialize the *Model instances"""
         if isinstance(model, BaseEmbeddingModel):
             type_ = "embedding"
@@ -263,16 +245,10 @@ def search_space_preparation(
         elif hasattr(params, "dict"):  # Pydantic v1 models
             params = params.dict(exclude_unset=True)
 
-        return dumper.represent_mapping(
-            "!Model", {model.model_id: params or {}, "type_": type_}
-        )
+        return dumper.represent_mapping("!Model", {model.model_id: params or {}, "type_": type_})
 
-    yml.add_multi_representer(
-        BaseFoundationModel, represent_model_instance, Dumper=yml.SafeDumper
-    )
-    yml.add_multi_representer(
-        BaseEmbeddingModel, represent_model_instance, Dumper=yml.SafeDumper
-    )
+    yml.add_multi_representer(BaseFoundationModel, represent_model_instance, Dumper=yml.SafeDumper)
+    yml.add_multi_representer(BaseEmbeddingModel, represent_model_instance, Dumper=yml.SafeDumper)
 
     llama_stack_client_base_url = os.environ.get("LLAMA_STACK_CLIENT_BASE_URL", None)
     llama_stack_client_api_key = os.environ.get("LLAMA_STACK_CLIENT_API_KEY", None)
@@ -301,9 +277,7 @@ def search_space_preparation(
             )
         client = Client(
             generation_model=OpenAI(api_key=chat_model_token, base_url=chat_model_url),
-            embedding_model=OpenAI(
-                api_key=embedding_model_token, base_url=embedding_model_url
-            ),
+            embedding_model=OpenAI(api_key=embedding_model_token, base_url=embedding_model_url),
         )
         in_memory_vector_store_scenario = True
 
@@ -317,9 +291,7 @@ def search_space_preparation(
         or len(search_space["embedding_model"].values) > TOP_N_GENERATION_MODELS
     ):
         mps = ModelsPreSelector(
-            benchmark_data=benchmark_data.get_random_sample(
-                n_records=SAMPLE_SIZE, random_seed=SEED
-            ),
+            benchmark_data=benchmark_data.get_random_sample(n_records=SAMPLE_SIZE, random_seed=SEED),
             documents=documents,
             foundation_models=search_space._search_space["foundation_model"].values,
             embedding_models=search_space._search_space["embedding_model"].values,
@@ -330,9 +302,7 @@ def search_space_preparation(
             n_embedding_models=TOP_K_EMBEDDING_MODELS,
             n_foundation_models=TOP_N_GENERATION_MODELS,
         )
-        selected_models_names = {
-            k: list(map(str, v)) for k, v in selected_models.items()
-        }
+        selected_models_names = {k: list(map(str, v)) for k, v in selected_models.items()}
 
     else:
         selected_models_names = {
