@@ -64,7 +64,6 @@ packages = [
     "kfp_components.components.data_processing.automl.tabular_train_test_split",
     "kfp_components.components.data_processing.yoda_data_processor",
     "kfp_components.components.deployment",
-    "kfp_components.components.training",
     "kfp_components.pipelines",
     "kfp_components.pipelines.data_processing",
     "kfp_components.pipelines.deployment",

@@ -77,8 +77,16 @@ class MockedDataFrame:
         return MockedValueCounts(counts)
 
     def __getitem__(self, key):
-        """Return column as MockedSeries or filter rows by mask."""
-        if isinstance(key, (list, tuple)):
+        """Return MockedSeries (str), column subset (list of names), filtered rows (mask), or self."""
+        if isinstance(key, list):
+            # pandas df[['col1', 'col2']] returns only those columns; match it so tests catch subsetting bugs
+            if all(isinstance(k, str) for k in key):
+                col_indices = [self._columns.index(k) for k in key]
+                new_columns = [self._columns[i] for i in col_indices]
+                new_rows = [[row[i] for i in col_indices] for row in self._rows]
+                return MockedDataFrame(new_columns, new_rows)
+            return self
+        if isinstance(key, tuple):
             return self
         # Boolean "mask" style: df[df[col] != val]
         if hasattr(key, "_column") and hasattr(key, "_value"):
@@ -233,7 +241,14 @@ def make_mocked_pandas_module():
     import types
 
     mod = types.ModuleType("pandas")
-    mod.read_csv = lambda stream, chunksize=10000: _read_csv_chunks(stream, chunksize)
+
+    def _read_csv(stream, chunksize=None):
+        if chunksize is not None:
+            return _read_csv_chunks(stream, chunksize)
+        chunks = list(_read_csv_chunks(stream, 10000))
+        return _concat(chunks) if chunks else MockedDataFrame([], [])
+
+    mod.read_csv = _read_csv
     mod.concat = _concat
     mod.DataFrame = lambda: MockedDataFrame([], [])
 

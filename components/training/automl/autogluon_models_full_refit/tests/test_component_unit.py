@@ -145,6 +145,9 @@ class TestAutogluonModelsFullRefitUnitTests:
             assert notebook_path.exists()
             notebook = json.loads(notebook_path.read_text())
             assert "cells" in notebook
+            notebook_text = notebook_path.read_text()
+            for placeholder in ("<PIPELINE_NAME>", "<RUN_ID>", "<MODEL_NAME>", "<SAMPLE_ROW>"):
+                assert placeholder not in notebook_text, f"Unreplaced placeholder: {placeholder}"
         finally:
             shutil.rmtree(model_output_dir, ignore_errors=True)
 
@@ -334,6 +337,11 @@ class TestAutogluonModelsFullRefitUnitTests:
                 run_id=RUN_ID,
                 sample_row=SAMPLE_ROW,
                 model_artifact=mock_model_artifact,
+            )
+            mock_confusion_matrix.assert_called_once_with(
+                solution=mock_dataset_df["target"],
+                prediction=mock_predictor_clone.predict.return_value,
+                output_format="pandas_dataframe",
             )
 
             metrics_dir = Path(model_output_dir) / "LightGBM_BAG_L1_FULL" / "metrics"

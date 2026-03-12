@@ -361,6 +361,9 @@ class TestTrainTestSplitUnitTests:
             assert hasattr(result, "split_config")
             assert isinstance(result.sample_row, str)
             assert result.sample_row == '[{"a":1,"b":2}]'
+            # Assert head(1) called on test_combined, and that its return's to_json called with orient="records"
+            mocks["test_combined"].head.assert_called_once_with(1)
+            mocks["test_combined"].head.return_value.to_json.assert_called_once_with(orient="records")
             # Component returns effective split config (user input + defaults)
             assert result.split_config["test_size"] == 0.25
             assert result.split_config["random_state"] == 42

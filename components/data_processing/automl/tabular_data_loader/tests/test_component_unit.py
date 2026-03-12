@@ -13,7 +13,7 @@ from unittest import mock
 import pytest
 
 from ..component import automl_data_loader
-from .mocked_pandas import make_mocked_pandas_module
+from .mocked_pandas import MockedDataFrame, make_mocked_pandas_module
 
 
 @contextmanager
@@ -165,7 +165,7 @@ class TestAutomlDataLoaderUnitTests:
             full_dataset = mock.MagicMock()
             full_dataset.path = str(tmp_path / "out.csv")
 
-            with pytest.raises(ValueError, match=r"Target column 'label' not found|Error reading CSV from S3"):
+            with pytest.raises(ValueError, match=r"Error reading CSV from S3"):
                 automl_data_loader.python_func(
                     file_key="data/file.csv",
                     bucket_name="bucket",
@@ -228,35 +228,50 @@ class TestAutomlDataLoaderUnitTests:
 
     @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
     def test_component_random_sampling_deterministic(self, tmp_path):
-        """Test that random sampling with fixed random_state is reproducible."""
+        """Test that random sampling with fixed random_state is reproducible.
+
+        Use a large BYTES_PER_ROW so the mock reports >1GB for few rows, triggering
+        _sample_random's downsampling (component lines 173-176). Otherwise no sample()
+        call runs and the test would trivially pass without exercising the seed logic.
+        """
         csv_content = "x,y\n1,2\n3,4\n5,6\n7,8\n9,10\n"
 
         def get_object(**kwargs):
             return {"Body": io.BytesIO(csv_content.encode("utf-8"))}
 
-        with _mock_boto3_and_pandas(get_object_side_effect=get_object):
-            full_dataset1 = mock.MagicMock()
-            full_dataset1.path = str(tmp_path / "out1.csv")
-            full_dataset2 = mock.MagicMock()
-            full_dataset2.path = str(tmp_path / "out2.csv")
+        original_bytes_per_row = MockedDataFrame.BYTES_PER_ROW
+        try:
+            # 5 rows * 500M bytes/row = 2.5GB > 1GB limit -> triggers random downsampling
+            MockedDataFrame.BYTES_PER_ROW = 500_000_000
 
-            result1 = automl_data_loader.python_func(
-                file_key="data/file.csv",
-                bucket_name="bucket",
-                full_dataset=full_dataset1,
-                sampling_method="random",
-            )
-            result2 = automl_data_loader.python_func(
-                file_key="data/file.csv",
-                bucket_name="bucket",
-                full_dataset=full_dataset2,
-                sampling_method="random",
-            )
+            with _mock_boto3_and_pandas(get_object_side_effect=get_object):
+                full_dataset1 = mock.MagicMock()
+                full_dataset1.path = str(tmp_path / "out1.csv")
+                full_dataset2 = mock.MagicMock()
+                full_dataset2.path = str(tmp_path / "out2.csv")
 
-        assert result1.sample_config["n_samples"] == result2.sample_config["n_samples"] == 5
-        _, rows1 = _read_csv_path(full_dataset1.path)
-        _, rows2 = _read_csv_path(full_dataset2.path)
-        assert rows1 == rows2
+                result1 = automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    full_dataset=full_dataset1,
+                    sampling_method="random",
+                )
+                result2 = automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    full_dataset=full_dataset2,
+                    sampling_method="random",
+                )
+
+            n1 = result1.sample_config["n_samples"]
+            n2 = result2.sample_config["n_samples"]
+            assert n1 == n2, "Same random_state should yield same sample size"
+            assert n1 == 2, "Downsampling should have been triggered (2 rows * 0.5 GB/row = 1 GB)"
+            _, rows1 = _read_csv_path(full_dataset1.path)
+            _, rows2 = _read_csv_path(full_dataset2.path)
+            assert rows1 == rows2, "Same random_state should yield identical rows"
+        finally:
+            MockedDataFrame.BYTES_PER_ROW = original_bytes_per_row
 
     @mock.patch.dict("os.environ", {"AWS_ACCESS_KEY_ID": "test_key", "AWS_SECRET_ACCESS_KEY": "test_secret"})
     def test_component_random_sampling_multiple_chunks(self, tmp_path):
