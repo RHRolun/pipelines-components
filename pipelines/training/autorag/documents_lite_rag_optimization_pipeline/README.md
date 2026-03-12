@@ -6,18 +6,15 @@
 
 Automated system for building and optimizing Retrieval-Augmented Generation (RAG) applications.
 
-The Documents Lite RAG Optimization Pipeline is an automated system for building and optimizing Retrieval-Augmented
-Generation (RAG) applications within Red Hat OpenShift AI. It leverages Kubeflow Pipelines to orchestrate the
-optimization workflow, using the ai4rag optimization engine to systematically explore RAG configurations and identify
-the best performing parameter settings based on an upfront-specified quality metric.
+The Documents Lite RAG Optimization Pipeline is an automated system for building and optimizing Retrieval-Augmented Generation (RAG) applications within Red Hat OpenShift AI. It leverages Kubeflow Pipelines to orchestrate the optimization workflow, using the ai4rag optimization engine to
+systematically explore RAG configurations and identify the best performing parameter settings based on an upfront-specified quality metric.
 
-The system integrates with OpenAI API for inference and in-memory ChromaDB vector database operations, producing
-optimized RAG patterns as artifacts that can be deployed and used for production RAG applications.
+The system integrates with OpenAI API for inference and in-memory ChromaDB vector database operations, producing optimized RAG patterns as artifacts that can be deployed and used for production RAG applications.
 
 ## Inputs 📥
 
 | Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
+| --------- | ---- | ------- | ----------- |
 | `test_data_secret_name` | `str` | `None` | Name of the Kubernetes secret holding S3-compatible credentials for test data access. The following environment variables are required: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, AWS_DEFAULT_REGION. |
 | `test_data_bucket_name` | `str` | `None` | S3 (or compatible) bucket name for the test data file. |
 | `test_data_key` | `str` | `None` | Object key (path) of the test data JSON file in the test data bucket. |
@@ -74,6 +71,35 @@ def example_full_usage():
     )
 
 ```
+
+## Metadata 🗂️
+
+- **Name**: documents_rag_optimization_pipeline
+- **Stability**: alpha
+- **Dependencies**:
+  - Kubeflow:
+    - Name: Pipelines, Version: >=2.15.2
+  - External Services:
+    - Name: ai4rag, Version: >=1.0.0
+    - Name: llama-stack API, Version: >=1.0.0
+    - Name: RHOAI Connections API, Version: >=1.0.0
+    - Name: Milvus, Version: >=2.0.0
+    - Name: Milvus Lite, Version: >=2.0.0
+    - Name: MLFlow, Version: >=2.0.0
+    - Name: docling, Version: >=1.0.0
+- **Tags**:
+  - training
+  - pipeline
+  - autorag
+  - rag-optimization
+- **Last Verified**: 2026-01-23 14:57:32+00:00
+- **Owners**:
+  - Approvers:
+    - LukaszCmielowski
+    - filip-komarzyniec
+    - witold-nowogorski
+  - Reviewers:
+    - LukaszCmielowski
 
 <!-- custom-content -->
 
@@ -150,32 +176,3 @@ parameter values to create RAG Patterns.
 
 - **ai4rag Documentation**: [ai4rag GitHub](https://github.com/IBM/ai4rag)
 - **Issue Tracker**: [GitHub Issues](https://github.com/kubeflow/pipelines-components/issues)
-
-## Metadata 🗂️
-
-- **Name**: documents_rag_optimization_pipeline
-- **Stability**: alpha
-- **Dependencies**:
-  - Kubeflow:
-    - Name: Pipelines, Version: >=2.15.2
-  - External Services:
-    - Name: ai4rag, Version: >=1.0.0
-    - Name: llama-stack API, Version: >=1.0.0
-    - Name: RHOAI Connections API, Version: >=1.0.0
-    - Name: Milvus, Version: >=2.0.0
-    - Name: Milvus Lite, Version: >=2.0.0
-    - Name: MLFlow, Version: >=2.0.0
-    - Name: docling, Version: >=1.0.0
-- **Tags**:
-  - training
-  - pipeline
-  - autorag
-  - rag-optimization
-- **Last Verified**: 2026-01-23 14:57:32+00:00
-- **Owners**:
-  - Approvers:
-    - LukaszCmielowski
-    - filip-komarzyniec
-    - witold-nowogorski
-  - Reviewers:
-    - LukaszCmielowsk

@@ -9,7 +9,7 @@ Defines a pipeline to load, sample, extract text, and index documents for AutoRA
 ## Inputs 📥
 
 | Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
+| --------- | ---- | ------- | ----------- |
 | `input_data_secret_name` | `str` | `None` | Name of the secret with S3 credentials for input data ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_S3_ENDPOINT", "AWS_DEFAULT_REGION"). |
 | `input_data_bucket_name` | `str` | `None` | Name of the S3 bucket containing input data. |
 | `input_data_key` | `str` | `None` | Path to folder with input documents within bucket. |
