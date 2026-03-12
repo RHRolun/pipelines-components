@@ -93,8 +93,7 @@ def automl_data_loader(
 
         if not endpoint_url:
             raise ValueError(
-                "S3 credentials missing: AWS_S3_ENDPOINT must be provided via the Kubernetes "
-                "secret with connection details."
+                "S3 credentials missing: AWS_S3_ENDPOINT must be provided via "
                 "a Kubernetes secret or environment configuration."
             )
 
