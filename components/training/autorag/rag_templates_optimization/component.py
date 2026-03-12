@@ -1449,6 +1449,7 @@ def rag_templates_optimization(
         embedding_from_idx = idx.get("embedding") or idx.get("embeddings") or {}
         embeddings = rp.get("embeddings") or rp.get("embedding") or embedding_from_idx
         retrieval = rp.get("retrieval") or {}
+
         # ai4rag retrieval: search_mode is "hybrid" | "vector"; ranker_* used when search_mode is hybrid
         def _ret(key: str, default=None):
             return retrieval.get(key) if isinstance(retrieval, dict) else default
