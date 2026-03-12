@@ -247,7 +247,7 @@ class ReadmeContentGenerator:
             else:
                 default_str = "Required"
 
-            description = sub(r"\b\n+\b", " ", param_info.get("description", ""))
+            description = sub(r"\n+", " ", param_info.get("description", ""))
 
             parameters[param_name] = {
                 "type": param_type,
@@ -256,12 +256,12 @@ class ReadmeContentGenerator:
             }
 
         # Prepare returns
-        # NOTE: Don't wrap description - it goes in a table cell
+        # NOTE: Unwrap description - it goes in a table cell
         returns = self.metadata.get("returns", {})
         if returns:
             returns = {
                 "type": returns.get("type", "Any"),
-                "description": returns.get("description", "Component output"),
+                "description": sub(r"\n+", " ", returns.get("description", "Component output")),
             }
 
         # Load example pipeline if it exists
