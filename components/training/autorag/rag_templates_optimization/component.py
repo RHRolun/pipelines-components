@@ -102,7 +102,8 @@ def rag_templates_optimization(
     from llama_stack_client import LlamaStackClient
     from openai import OpenAI
 
-    MAX_NUMBER_OF_RAG_PATTERNS = 8
+    DEFAULT_MAX_NUMBER_OF_RAG_PATTERNS = 8
+    MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE = (4, 20)
     METRIC = "faithfulness"
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
     SUPPORTED_VS_TYPES = ("ls_milvus", )
@@ -134,6 +135,18 @@ def rag_templates_optimization(
 
     if not isinstance(optimization_settings, dict):
         errors.append("optimization_settings must be a dictionary.")
+    else:
+        max_rag_patterns = optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
+        if (
+            MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]
+            < max_rag_patterns <
+            MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]
+        ):
+            errors.append(
+                f"optimization_settings.max_number_of_rag_patterns must be in a range"
+                f"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]} to "
+                f"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]}."
+            )
 
     if errors:
         raise ValueError("Invalid input:\n" + "\n".join(errors))
