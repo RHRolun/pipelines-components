@@ -11,6 +11,7 @@ from ai4rag.rag.foundation_models.base_model import FoundationModel
 
 
 class DisconnectedModelsPreSelector(ModelsPreSelector):
+
     def __init__(self, mps: ModelsPreSelector) -> None:
         self.mps: ModelsPreSelector = mps
         self.metric = mps.metric
