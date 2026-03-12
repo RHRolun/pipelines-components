@@ -13,7 +13,7 @@ from kfp import dsl
         "llama-stack-client",
         "openai",
     ],
-    embedded_artifact_path=str((Path(__file__).parent / "notebooks")),
+    embedded_artifact_path=str((Path(__file__).parent / "notebook_templates")),
 )
 def rag_templates_optimization(
     extracted_text: dsl.InputPath(dsl.Artifact),
