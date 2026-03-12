@@ -3,6 +3,7 @@
 import logging
 import textwrap
 from pathlib import Path
+from re import sub
 from typing import Any, Dict
 
 import yaml
@@ -235,7 +236,7 @@ class ReadmeContentGenerator:
         overview = wrap_text(overview)
 
         # Prepare parameters with formatted defaults
-        # NOTE: Don't wrap descriptions - they go in table cells and wrapping breaks tables
+        # NOTE: Unwrap descriptions (taken from docstrings) - they go in table cells and wrapping breaks tables
         parameters = {}
         for param_name, param_info in self.metadata.get("parameters", {}).items():
             param_type = param_info.get("type", "Any")
@@ -246,7 +247,7 @@ class ReadmeContentGenerator:
             else:
                 default_str = "Required"
 
-            description = param_info.get("description", "")
+            description = sub(r"\b\n+\b", " ", param_info.get("description", ""))
 
             parameters[param_name] = {
                 "type": param_type,
