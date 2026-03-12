@@ -466,9 +466,11 @@ def leaderboard_evaluation(
             min_rem = max(min_rem, min_for_two_line)
         w = max(min_rem, min(32, 0.6 * column_max_len[i]))
         width_rem.append(w)
-    colgroup_html = "          <colgroup>\n" + "\n".join(
-        "            <col style=\"width: %.1frem\">" % width_rem[i] for i in range(ncols)
-    ) + "\n          </colgroup>"
+    colgroup_html = (
+        "          <colgroup>\n"
+        + "\n".join('            <col style="width: %.1frem">' % width_rem[i] for i in range(ncols))
+        + "\n          </colgroup>"
+    )
 
     best_pattern_name = "—"
     if evaluations:

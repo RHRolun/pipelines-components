@@ -12,13 +12,13 @@ class TestTestDataLoaderUnitTests:
         assert hasattr(test_data_loader, "python_func")
 
     def test_component_with_default_parameters(self):
-        """Test component with valid input parameters."""
-        # TODO: Implement unit tests for your component
+        """Test component has expected interface (required args)."""
+        import inspect
 
-        # Example test structure:
-        result = test_data_loader.python_func(input_param="test_value")
-        assert isinstance(result, str)
-        assert "test_value" in result
+        sig = inspect.signature(test_data_loader.python_func)
+        params = list(sig.parameters)
+        assert "test_data_bucket_name" in params
+        assert "test_data_path" in params
 
     # TODO: Add more comprehensive unit tests
     # @mock.patch("external_library.some_function")

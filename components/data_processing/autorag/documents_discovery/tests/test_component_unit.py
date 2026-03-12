@@ -1,24 +1,24 @@
 """Tests for the documents_discovery component."""
 
-from ..component import documents_sampling
+from ..component import documents_discovery
 
 
-class TestDocumentsSamplingUnitTests:
+class TestDocumentsDiscoveryUnitTests:
     """Unit tests for component logic."""
 
     def test_component_function_exists(self):
         """Test that the component function is properly imported."""
-        assert callable(documents_sampling)
-        assert hasattr(documents_sampling, "python_func")
+        assert callable(documents_discovery)
+        assert hasattr(documents_discovery, "python_func")
 
     def test_component_with_default_parameters(self):
-        """Test component with valid input parameters."""
-        # TODO: Implement unit tests for your component
+        """Test component has expected interface (required args)."""
+        import inspect
 
-        # Example test structure:
-        result = documents_sampling.python_func(input_param="test_value")
-        assert isinstance(result, str)
-        assert "test_value" in result
+        sig = inspect.signature(documents_discovery.python_func)
+        params = list(sig.parameters)
+        assert "input_data_bucket_name" in params
+        assert "input_data_path" in params
 
     # TODO: Add more comprehensive unit tests
     # @mock.patch("external_library.some_function")

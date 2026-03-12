@@ -12,13 +12,15 @@ class TestRagTemplatesOptimizationUnitTests:
         assert hasattr(rag_templates_optimization, "python_func")
 
     def test_component_with_default_parameters(self):
-        """Test component with valid input parameters."""
-        # TODO: Implement unit tests for your component
+        """Test component has expected interface (required args)."""
+        import inspect
 
-        # Example test structure:
-        result = rag_templates_optimization.python_func(input_param="test_value")
-        assert isinstance(result, str)
-        assert "test_value" in result
+        sig = inspect.signature(rag_templates_optimization.python_func)
+        params = list(sig.parameters)
+        assert "extracted_text" in params
+        assert "test_data" in params
+        assert "search_space_prep_report" in params
+        assert "rag_patterns" in params
 
     # TODO: Add more comprehensive unit tests
     # @mock.patch("external_library.some_function")
