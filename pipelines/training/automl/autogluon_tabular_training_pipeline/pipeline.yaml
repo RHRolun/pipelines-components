@@ -889,14 +889,18 @@ deploymentSpec:
           )\n\n        if (access_key and not secret_key) or (secret_key and not access_key):\n\
           \            raise ValueError(\n                \"S3 credentials misconfigured:\
           \ AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must either \"\n         \
-          \       \"both be set and non-empty, or both be unset. Check a Kubernetes\
-          \ secret.\"\n            )\n        if not access_key and not secret_key:\n\
-          \            raise ValueError(\n                \"S3 credentials missing:\
-          \ AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be provided via \"\n\
-          \                \"a Kubernetes secret or environment configuration when\
-          \ using s3:// dataset URIs.\"\n            )\n\n        return boto3.client(\n\
-          \            \"s3\",\n            endpoint_url=endpoint_url,\n         \
-          \   region_name=region_name,\n            aws_access_key_id=access_key,\n\
+          \       \"both be set and non-empty, or both be unset. Check the Kubernetes\
+          \ secret or environment configuration.\"\n            )\n        if not\
+          \ access_key and not secret_key:\n            raise ValueError(\n      \
+          \          \"S3 credentials missing: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY\
+          \ must be provided via \"\n                \"a Kubernetes secret or environment\
+          \ configuration when using s3:// dataset URIs.\"\n            )\n\n    \
+          \    if not endpoint_url:\n            raise ValueError(\n             \
+          \   \"S3 credentials missing: AWS_S3_ENDPOINT must be provided via the Kubernetes\
+          \ \"\n                \"secret with connection details.\"\n            \
+          \    \"a Kubernetes secret or environment configuration.\"\n           \
+          \ )\n\n        return boto3.client(\n            \"s3\",\n            endpoint_url=endpoint_url,\n\
+          \            region_name=region_name,\n            aws_access_key_id=access_key,\n\
           \            aws_secret_access_key=secret_key,\n        )\n\n    def _sample_first_n_rows(text_stream,\
           \ chunk_size, max_size_bytes):\n        \"\"\"Take rows from the start of\
           \ the stream until the size limit is reached.\"\"\"\n        chunk_list\
@@ -1482,7 +1486,7 @@ platforms:
                   secretKey: AWS_S3_ENDPOINT
                 - envVar: AWS_DEFAULT_REGION
                   secretKey: AWS_DEFAULT_REGION
-              optional: false
+              optional: true
               secretNameParameter:
                 componentInputParameter: train_data_secret_name
     pipelineConfig:
