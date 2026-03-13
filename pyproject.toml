@@ -91,6 +91,7 @@ packages = [
 "kfp_components.pipelines" = "pipelines"
 
 [tool.setuptools.package-data]
+"kfp_components.components.training.autorag.rag_templates_optimization" = ["notebook_templates/*.ipynb"]
 "*" = ["*.yaml", "*.yml", "*.json"]
 
 [tool.ruff]
