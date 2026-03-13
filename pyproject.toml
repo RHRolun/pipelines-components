@@ -64,7 +64,6 @@ packages = [
     "kfp_components.components.training.automl.autogluon_leaderboard_evaluation",
     "kfp_components.components.training.automl.autogluon_models_full_refit",
     "kfp_components.components.training.automl.autogluon_models_selection",
-    "kfp_components.components.training.automl.timeseries_forecasting",
     "kfp_components.components.training.automl.timeseries_models_full_refit",
     "kfp_components.components.training.automl.timeseries_models_selection",
     "kfp_components.pipelines",
