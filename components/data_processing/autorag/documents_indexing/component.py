@@ -78,8 +78,8 @@ def documents_indexing(
         errors.append(f"chunking_method is not supported, supported methods are {supported_chunking_methods}.")
 
     if (
-        not isinstance(chunk_size, int) or
-        supported_chunks_sizes_range[0] <= chunk_size <= supported_chunks_sizes_range[1]
+        not isinstance(chunk_size, int)
+        or not (supported_chunks_sizes_range[0] <= chunk_size <= supported_chunks_sizes_range[1])
     ):
         errors.append(
             f"chunk_size must be an integer in the range"
