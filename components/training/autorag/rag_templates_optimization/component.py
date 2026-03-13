@@ -282,9 +282,9 @@ def rag_templates_optimization(
         def load(
             cls,
             notebook_name: Literal[
-                "ls_indexing_template.json",
-                "ls_inference_template.json",
-                "chroma_teamplate.json",
+                "ls_indexing_template.ipynb",
+                "ls_inference_template.ipynb",
+                "chroma_teamplate.ipynb",
             ],
         ) -> "Notebook":
             """
@@ -293,7 +293,7 @@ def rag_templates_optimization(
             Parameters
             ----------
             path : str | Path
-                Input file path to the .json template file.
+                Input file path to the .ipynb file.
 
             Returns
             -------
@@ -302,7 +302,7 @@ def rag_templates_optimization(
 
             Examples
             --------
-            >>> nb = Notebook.load("existing_notebook.json")
+            >>> nb = Notebook.load("existing_notebook.ipynb")
             """
             with open(Path(embedded_artifact.path) / notebook_name, "r") as f:
                 nb_dict = json_load(f)
@@ -449,7 +449,7 @@ def rag_templates_optimization(
             chat_model_url=chat_model_url,
             embedding_model_url=embedding_model_url,
         )
-        notebook = Notebook.load(notebook_name=f"{notebook_template}_template.json")
+        notebook = Notebook.load(notebook_name=f"{notebook_template}_template.ipynb")
         filled_cells = []
         for cell in notebook.cells:
             filled_cell = cell.format_source(placeholder_mapping)
