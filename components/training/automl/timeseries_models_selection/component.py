@@ -51,7 +51,6 @@ def timeseries_models_selection(
     Returns:
         NamedTuple: top_models list, predictor_path, eval_metric_name, model_config.
     """
-    import json
     import logging
     from pathlib import Path
 
@@ -113,9 +112,8 @@ def timeseries_models_selection(
     try:
         predictor.fit(
             train_data=train_ts,
-            presets=DEFAULT_PRESET,
+            presets=DEFAULT_PRESETS,
             time_limit=DEFAULT_TIME_LIMIT,
-            excluded_model_types=excluded_model_types,
             known_covariates_names=known_covariates_names,
         )
     except Exception as e:
@@ -148,7 +146,6 @@ def timeseries_models_selection(
         "presets": DEFAULT_PRESETS,
         "time_limit": DEFAULT_TIME_LIMIT,
         "known_covariates_names": known_covariates_names or [],
-        "excluded_model_types": excluded_model_types or [],
         "num_models_trained": len(leaderboard),
     }
 
