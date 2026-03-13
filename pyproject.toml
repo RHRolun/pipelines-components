@@ -54,6 +54,7 @@ packages = [
     "kfp_components.components.training.autorag",
     "kfp_components.components.training.autorag.search_space_preparation",
     "kfp_components.components.training.autorag.rag_templates_optimization",
+    "kfp_components.components.training.autorag.rag_templates_optimization.notebook_templates",
     "kfp_components.components.training.autorag.leaderboard_evaluation",
     "kfp_components.components.data_processing.autorag",
     "kfp_components.components.training.automl",
