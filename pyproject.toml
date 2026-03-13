@@ -90,7 +90,7 @@ packages = [
 "kfp_components.pipelines" = "pipelines"
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml", "*.json"]
+"*" = ["*.yaml", "*.yml", "*.json", "*.ipynb"]
 
 [tool.ruff]
 line-length = 120
