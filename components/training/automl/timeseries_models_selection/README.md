@@ -45,5 +45,8 @@ The component uses a simplified/mocked implementation for demonstration.
   - model-selection
 - **Last Verified**: 2026-03-13 13:43:53+00:00
 - **Owners**:
-  - Approvers: None
-  - Reviewers: None
+  - Approvers:
+    - mprahl
+    - nsingla
+  - Reviewers:
+    - HumairAK

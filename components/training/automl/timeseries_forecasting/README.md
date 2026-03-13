@@ -206,6 +206,7 @@ Input data should be a TimeSeriesDataFrame in parquet format with:
   - Optional static features (constant per item_id)
 
 Example structure:
+
 ```
                         sales  is_holiday  promotion
 item_id  timestamp
