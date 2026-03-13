@@ -679,21 +679,12 @@ def rag_templates_optimization(
         def _rp(key: str, default=None):
             return rp.get(key) if isinstance(rp, dict) else default
 
-        retrieval_method = (
-            _ret("method")
-            or _ret("retrieval_method")
-            or _rp("retrieval_method")
-            or "simple"
-        )
+        retrieval_method = _ret("method") or _ret("retrieval_method") or _rp("retrieval_method") or "simple"
         number_of_chunks = _ret("number_of_chunks") or _rp("number_of_chunks") or 5
         search_mode = _ret("search_mode") or _rp("search_mode")
         ranker_strategy = _ret("ranker_strategy") or _rp("ranker_strategy")
         ranker_k = _ret("ranker_k") if _ret("ranker_k") is not None else _rp("ranker_k")
-        ranker_alpha = (
-            _ret("ranker_alpha")
-            if _ret("ranker_alpha") is not None
-            else _rp("ranker_alpha")
-        )
+        ranker_alpha = _ret("ranker_alpha") if _ret("ranker_alpha") is not None else _rp("ranker_alpha")
         generation = rp.get("generation") or {}
         # embedding model_id: from indexing_params.embedding (ai4rag), or rag_params, or flat embedding_model
         embedding_model_id = None
@@ -748,17 +739,9 @@ def rag_templates_optimization(
                     "method": retrieval_method,
                     "number_of_chunks": number_of_chunks,
                     **({"search_mode": search_mode} if search_mode is not None else {}),
-                    **(
-                        {"ranker_strategy": ranker_strategy}
-                        if ranker_strategy is not None
-                        else {}
-                    ),
+                    **({"ranker_strategy": ranker_strategy} if ranker_strategy is not None else {}),
                     **({"ranker_k": ranker_k} if ranker_k is not None else {}),
-                    **(
-                        {"ranker_alpha": ranker_alpha}
-                        if ranker_alpha is not None
-                        else {}
-                    ),
+                    **({"ranker_alpha": ranker_alpha} if ranker_alpha is not None else {}),
                 },
                 "generation": {
                     "model_id": generation_model_id or "",
