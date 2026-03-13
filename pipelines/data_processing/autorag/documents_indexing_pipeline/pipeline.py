@@ -12,12 +12,12 @@ from kfp_components.components.data_processing.autorag.text_extraction.component
     description="Pipeline to load test data, discover and extract documents, then index them into a vector store.",
 )
 def documents_indexing_pipeline(
-    input_data_secret_name: str,
-    input_data_bucket_name: str,
-    input_data_key: str,
     llama_stack_secret_name: str,
     embedding_model_id: str,
     llama_stack_vector_database_id: str,
+    input_data_secret_name: str,
+    input_data_bucket_name: str,
+    input_data_key: Optional[str] = None,
     collection_name: str = None,
     embedding_params: Optional[dict] = None,
     distance_metric: str = "cosine",

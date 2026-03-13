@@ -1,5 +1,7 @@
 from kfp import dsl
 
+from typing import Optional
+
 
 @dsl.component(
     base_image="registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc",
@@ -7,7 +9,7 @@ from kfp import dsl
 )
 def documents_discovery(
     input_data_bucket_name: str,
-    input_data_path: str,
+    input_data_path: Optional[str],
     test_data: dsl.Input[dsl.Artifact] = None,
     sampling_enabled: bool = True,
     sampling_max_size: float = 1,
@@ -45,6 +47,7 @@ def documents_discovery(
     DOCUMENTS_DESCRIPTOR_FILENAME = "documents_descriptor.json"
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".md", ".html", ".txt"}
     MAX_SIZE_BYTES = float(inf)
+
     if sampling_enabled:
         MAX_SIZE_BYTES = float(sampling_max_size) * 1024**3
 
@@ -61,6 +64,8 @@ def documents_discovery(
 
     if errors:
         raise ValueError("Invalid input:\n" + "\n".join(errors))
+
+    input_data_path = input_data_path or ""
 
     def get_test_data_docs_names() -> list[str]:
         if test_data is None:
