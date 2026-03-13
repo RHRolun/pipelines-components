@@ -622,8 +622,8 @@ deploymentSpec:
           \ {str(e)}\")\n\n    # Select top N models from leaderboard\n    top_models\
           \ = leaderboard.head(top_n)[\"model\"].values.tolist()\n    logger.info(f\"\
           Top {top_n} models selected from leaderboard: {top_models}\")\n    logger.info(f\"\
-          Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][eval_metric]}\"\
-          )\n\n    # Create model config\n    model_config = {\n        \"prediction_length\"\
+          Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][\"score_test\"\
+          ]}\")\n\n    # Create model config\n    model_config = {\n        \"prediction_length\"\
           : prediction_length,\n        \"eval_metric\": eval_metric,\n        \"\
           target\": target,\n        \"id_column\": id_column,\n        \"timestamp_column\"\
           : timestamp_column,\n        \"presets\": DEFAULT_PRESETS,\n        \"time_limit\"\

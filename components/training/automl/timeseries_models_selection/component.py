@@ -134,7 +134,7 @@ def timeseries_models_selection(
     # Select top N models from leaderboard
     top_models = leaderboard.head(top_n)["model"].values.tolist()
     logger.info(f"Top {top_n} models selected from leaderboard: {top_models}")
-    logger.info(f"Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][eval_metric]}")
+    logger.info(f"Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0]["score_test"]}")
 
     # Create model config
     model_config = {
