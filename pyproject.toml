@@ -91,6 +91,7 @@ packages = [
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"]
+"kfp_components.components.training.autorag.rag_templates_optimization" = ["notebook_templates/*.ipynb"]
 
 [tool.ruff]
 line-length = 120
