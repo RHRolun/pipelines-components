@@ -25,11 +25,7 @@ dataset.
 | `top_n` | `int` | `None` | Number of top models to select for refitting. |
 | `workspace_path` | `str` | `None` | Workspace directory where predictor will be saved. |
 | `prediction_length` | `int` | `1` | Forecast horizon (number of timesteps). |
-| `eval_metric` | `str` | `MASE` | Evaluation metric (e.g., "MASE", "MAPE", "SMAPE", "WQL"). |
-| `preset` | `str` | `medium_quality` | AutoGluon quality preset ("fast_training", "medium_quality", "high_quality", "best_quality"). |
-| `time_limit` | `int` | `3600` | Training time limit in seconds (default: 3600). |
 | `known_covariates_names` | `Optional[List[str]]` | `None` | Optional list of known covariate column names. |
-| `excluded_model_types` | `Optional[List[str]]` | `None` | Optional list of model types to exclude from training. |
 
 ## Outputs 📤
 

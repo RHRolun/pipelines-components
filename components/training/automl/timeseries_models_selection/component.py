@@ -19,11 +19,7 @@ def timeseries_models_selection(
     top_n: int,
     workspace_path: str,
     prediction_length: int = 1,
-    eval_metric: str = "MASE",
-    preset: str = "medium_quality",
-    time_limit: int = 3600,
     known_covariates_names: Optional[List[str]] = None,
-    excluded_model_types: Optional[List[str]] = None,
 ) -> NamedTuple(
     "outputs",
     top_models=List[str],
@@ -50,11 +46,7 @@ def timeseries_models_selection(
         top_n: Number of top models to select for refitting.
         workspace_path: Workspace directory where predictor will be saved.
         prediction_length: Forecast horizon (number of timesteps).
-        eval_metric: Evaluation metric (e.g., "MASE", "MAPE", "SMAPE", "WQL").
-        preset: AutoGluon quality preset ("fast_training", "medium_quality", "high_quality", "best_quality").
-        time_limit: Training time limit in seconds (default: 3600).
         known_covariates_names: Optional list of known covariate column names.
-        excluded_model_types: Optional list of model types to exclude from training.
 
     Returns:
         NamedTuple: top_models list, predictor_path, eval_metric_name, model_config.
@@ -68,6 +60,10 @@ def timeseries_models_selection(
 
     logger = logging.getLogger(__name__)
 
+    # Set constants
+    DEFAULT_PRESETS = "medium_quality"
+    DEFAULT_EVAL_METRIC = "MASE"
+    DEFAULT_TIME_LIMIT = 60 * 60  # 60 * 60 = 3600 seconds = 1 hour
 
     # Load training data
     logger.info("Loading training data from %s", train_data_path)
@@ -101,8 +97,8 @@ def timeseries_models_selection(
     predictor_path = Path(workspace_path) / "timeseries_predictor"
 
     logger.info(f"Creating TimeSeriesPredictor with prediction_length={prediction_length}")
-    logger.info(f"Evaluation metric: {eval_metric}, Preset: {preset}, Time limit: {time_limit}s")
 
+    eval_metric = DEFAULT_EVAL_METRIC
     # Create TimeSeriesPredictor
     predictor = TimeSeriesPredictor(
         prediction_length=prediction_length,
@@ -117,8 +113,8 @@ def timeseries_models_selection(
     try:
         predictor.fit(
             train_data=train_ts,
-            presets=preset,
-            time_limit=time_limit,
+            presets=DEFAULT_PRESET,
+            time_limit=DEFAULT_TIME_LIMIT,
             excluded_model_types=excluded_model_types,
             known_covariates_names=known_covariates_names,
         )
@@ -142,25 +138,6 @@ def timeseries_models_selection(
     logger.info(f"Top {top_n} models selected from leaderboard: {top_models}")
     logger.info(f"Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][eval_metric]}")
 
-    # Save predictor metadata
-    predictor_metadata = {
-        "target": target,
-        "id_column": id_column,
-        "timestamp_column": timestamp_column,
-        "prediction_length": prediction_length,
-        "eval_metric": eval_metric,
-        "preset": preset,
-        "time_limit": time_limit,
-        "top_models": top_models,
-        "num_models_trained": len(leaderboard),
-        "leaderboard_top_n": leaderboard.head(top_n).to_dict(orient="records"),
-    }
-
-    with open(predictor_path / "predictor_metadata.json", "w") as f:
-        json.dump(predictor_metadata, f, indent=2)
-
-    logger.info(f"Saved predictor metadata to {predictor_path}")
-
     # Create model config
     model_config = {
         "prediction_length": prediction_length,
@@ -168,8 +145,8 @@ def timeseries_models_selection(
         "target": target,
         "id_column": id_column,
         "timestamp_column": timestamp_column,
-        "preset": preset,
-        "time_limit": time_limit,
+        "presets": DEFAULT_PRESETS,
+        "time_limit": DEFAULT_TIME_LIMIT,
         "known_covariates_names": known_covariates_names or [],
         "excluded_model_types": excluded_model_types or [],
         "num_models_trained": len(leaderboard),
