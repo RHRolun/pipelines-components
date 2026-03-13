@@ -22,8 +22,7 @@ components:
               producerSubtask: timeseries-models-full-refit
       tasks:
         timeseries-models-full-refit:
-          cachingOptions:
-            enableCache: true
+          cachingOptions: {}
           componentRef:
             name: comp-timeseries-models-full-refit
           inputs:
@@ -376,8 +375,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -449,7 +447,7 @@ deploymentSpec:
           \  sample_config=sample_config,\n        split_config=split_config,\n  \
           \      models_selection_train_data_path=str(selection_path),\n        extra_train_data_path=str(extra_path),\n\
           \    )\n\n"
-        image: python:3.11
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
     exec-timeseries-models-full-refit:
       container:
         args:
@@ -462,8 +460,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -534,7 +531,7 @@ deploymentSpec:
           ,\n        },\n        \"pipeline_info\": {\n            \"pipeline_name\"\
           : pipeline_name,\n            \"run_id\": run_id,\n        },\n    }\n\n\
           \    logger.info(f\"Model artifact created: {model_name_full}\")\n\n"
-        image: python:3.11
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
     exec-timeseries-models-selection:
       container:
         args:
@@ -547,8 +544,7 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
-          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
           \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
           $0\" \"$@\"\n"
         - sh
@@ -622,7 +618,7 @@ deploymentSpec:
           \    )\n    return outputs(\n        top_models=top_models,\n        predictor_path=str(predictor_path),\n\
           \        eval_metric_name=eval_metric,\n        model_config=model_config,\n\
           \    )\n\n"
-        image: python:3.11
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
 pipelineInfo:
   description: End-to-end AutoGluon time series forecasting pipeline. Loads time series
     data from S3 in TimeSeriesDataFrame format (item_id, timestamp, target), trains
@@ -680,8 +676,7 @@ root:
         taskInfo:
           name: for-loop-1
       leaderboard-evaluation:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-leaderboard-evaluation
         dependentTasks:
@@ -701,8 +696,7 @@ root:
         taskInfo:
           name: leaderboard-evaluation
       timeseries-data-loader:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-timeseries-data-loader
         inputs:
@@ -723,8 +717,7 @@ root:
         taskInfo:
           name: timeseries-data-loader
       timeseries-models-selection:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-timeseries-models-selection
         dependentTasks:
