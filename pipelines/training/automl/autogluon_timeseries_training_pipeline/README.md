@@ -10,19 +10,31 @@ This pipeline is intended to train AutoGluon time series forecasting models on d
 validation split, and output a leaderboard plus the top N trained predictors. Components are not yet implemented; this
 docstring describes the target design and parameters.
 
+**Storage strategy:**
+
+Training datasets are stored on a PVC workspace (not S3 artifacts) so that all pipeline steps sharing the workspace can
+access them without extra downloads. Only the test dataset is written to an S3 artifact (for use by the leaderboard
+evaluation component). The workspace is provisioned via ``PipelineConfig.workspace``.
+
 **Intended pipeline stages**
 
-1. **Data loading**: Load time series data from S3 (CSV/Parquet). The data must contain columns for item_id, timestamp,
-and target (and optionally known covariates). Build a :class:`~autogluon.timeseries.TimeSeriesDataFrame` (multi-index on
-item_id, timestamp).
+1. **Data Loading & Splitting**: Loads timeseries tabular (CSV) data from an S3-compatible object storage bucket using
+AWS credentials configured via Kubernetes secrets. The component samples the data (up to 1GB), then performs a two-stage
+split: *Primary split** (default 80/20): separates a *test set* (20%, written to an S3 artifact) from the *train
+portion* (80%). **Secondary split** (default 30/70 of the train portion): produces
+``models_selection_train_dataset.csv`` (30%, used for model selection) and ``extra_train_dataset.csv`` (70%, passed to
+``refit_full`` as extra data). Both train CSVs are written to the PVC workspace under ``{workspace_path}/datasets/``.
+The dataset must be ordered correctly prior to running the pipeline. The data must contain columns for item_id,
+timestamp, and target (and optionally known covariates).
 
-2. **Train / validation split**: Chronological or expanding-window split so that validation is used for model selection
-and evaluation (e.g. last ``prediction_length`` steps or configurable holdout). Produces train and validation
-TimeSeriesDataFrames.
+2. **Training and model selection on data sample**: Train multiple AutoGluon TimeSeries models (local e.g. ARIMA, ETS,
+Theta; global e.g. DeepAR, TFT) on the training data. Rank by eval_metric (e.g. WQL, MASE) on the validation set and
+select the top N models.
 
-3. **Training and model selection**: Train multiple AutoGluon TimeSeries models (local e.g. ARIMA, ETS, Theta; global
-e.g. DeepAR, TFT) on the training data. Rank by eval_metric (e.g. WQL, MASE) on the validation set and select the top N
-models.
+3. **Model fiting on larger part of input dataset**: Fits each of the top N selected models on the predictor's training
+and validation data, augmented with the *extra train* split via ``refit_full(train_data_extra=...)``. This stage runs in
+parallel (with parallelism of 2) to efficiently retrain multiple models. Each refitted model is saved with a "_FULL"
+suffix and optimized for deployment by removing unnecessary models and files.
 
 4. **Leaderboard evaluation**: Aggregate metrics from the trained models and produce an HTML leaderboard ranking them by
 the chosen evaluation metric. Output the top N predictors (and optionally metrics, notebook) for deployment.

@@ -1,6 +1,10 @@
 from typing import List, Optional
 
 from kfp import dsl
+from kfp_components.components.data_processing.automl.timeseries_data_loader import timeseries_data_loader
+from kfp_components.components.training.automl.autogluon_leaderboard_evaluation import leaderboard_evaluation
+from kfp_components.components.training.automl.timeseries_models_full_refit import timeseries_models_full_refit
+from kfp_components.components.training.automl.timeseries_models_selection import timeseries_models_selection
 
 
 @dsl.pipeline(
@@ -42,19 +46,39 @@ def autogluon_timeseries_training_pipeline(
     predictors. Components are not yet implemented; this docstring describes the target design
     and parameters.
 
+     **Storage strategy:**
+
+    Training datasets are stored on a PVC workspace (not S3 artifacts) so that all
+    pipeline steps sharing the workspace can access them without extra downloads. Only
+    the test dataset is written to an S3 artifact (for use by the leaderboard evaluation
+    component). The workspace is provisioned via ``PipelineConfig.workspace``.
+
     **Intended pipeline stages**
 
-    1. **Data loading**: Load time series data from S3 (CSV/Parquet). The data must contain columns
-       for item_id, timestamp, and target (and optionally known covariates). Build a
-       :class:`~autogluon.timeseries.TimeSeriesDataFrame` (multi-index on item_id, timestamp).
 
-    2. **Train / validation split**: Chronological or expanding-window split so that validation
-       is used for model selection and evaluation (e.g. last ``prediction_length`` steps or
-       configurable holdout). Produces train and validation TimeSeriesDataFrames.
+    1. **Data Loading & Splitting**: Loads timeseries tabular (CSV) data from an S3-compatible
+       object storage bucket using AWS credentials configured via Kubernetes secrets.
+       The component samples the data (up to 1GB), then performs a two-stage split:
+       *Primary split** (default 80/20): separates a *test set* (20%, written to an
+         S3 artifact) from the *train portion* (80%).
+         **Secondary split** (default 30/70 of the train portion): produces
+         ``models_selection_train_dataset.csv`` (30%, used for model selection) and
+         ``extra_train_dataset.csv`` (70%, passed to ``refit_full`` as extra data).
+         Both train CSVs are written to the PVC workspace under
+         ``{workspace_path}/datasets/``.
+        The dataset must be ordered correctly prior to running the pipeline. The data must contain columns
+       for item_id, timestamp, and target (and optionally known covariates).
 
-    3. **Training and model selection**: Train multiple AutoGluon TimeSeries models (local e.g.
+    2.  **Training and model selection on data sample**: Train multiple AutoGluon TimeSeries models (local e.g.
        ARIMA, ETS, Theta; global e.g. DeepAR, TFT) on the training data. Rank by eval_metric
        (e.g. WQL, MASE) on the validation set and select the top N models.
+
+    3. **Model fiting on larger part of input dataset**: Fits each of the top N selected models on the predictor's
+       training and validation data, augmented with the *extra train* split via
+       ``refit_full(train_data_extra=...)``. This stage runs in parallel (with
+       parallelism of 2) to efficiently retrain multiple models. Each refitted model is
+       saved with a "_FULL" suffix and optimized for deployment by removing unnecessary
+       models and files.
 
     4. **Leaderboard evaluation**: Aggregate metrics from the trained models and produce an HTML
        leaderboard ranking them by the chosen evaluation metric. Output the top N predictors
@@ -116,7 +140,65 @@ def autogluon_timeseries_training_pipeline(
             top_n=3,
         )
     """
-    pass
+    # Stage 1: Data Loading & Splitting
+    data_loader_task = timeseries_data_loader(
+        bucket_name=train_data_bucket_name,
+        file_key=train_data_file_key,
+        workspace_path=dsl.WORKSPACE_PATH_PLACEHOLDER,
+        target=target,
+        id_column=id_column,
+        timestamp_column=timestamp_column,
+    )
+
+    # Configure S3 secret for data loader
+    from kfp.kubernetes import use_secret_as_env
+
+    use_secret_as_env(
+        data_loader_task,
+        secret_name=train_data_secret_name,
+        secret_key_to_env={
+            "AWS_ACCESS_KEY_ID": "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY": "AWS_SECRET_ACCESS_KEY",
+            "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
+            "AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
+        },
+        optional=True,
+    )
+
+    # Stage 2: Model Selection
+    # Train multiple models on selection data and select top N performers
+    selection_task = timeseries_models_selection(
+        target=target,
+        id_column=id_column,
+        timestamp_column=timestamp_column,
+        train_data_path=data_loader_task.outputs["models_selection_train_data_path"],
+        test_data=data_loader_task.outputs["sampled_test_dataset"],
+        top_n=top_n,
+        workspace_path=dsl.WORKSPACE_PATH_PLACEHOLDER,
+        prediction_length=prediction_length,
+    )
+
+    # Stage 3: Model Refitting
+    # Refit each top model on full training dataset in parallel
+    with dsl.ParallelFor(items=selection_task.outputs["top_models"], parallelism=2) as model_name:
+        refit_task = timeseries_models_full_refit(
+            model_name=model_name,
+            test_dataset=data_loader_task.outputs["sampled_test_dataset"],
+            predictor_path=selection_task.outputs["predictor_path"],
+            sampling_config=data_loader_task.outputs["sample_config"],
+            split_config=data_loader_task.outputs["split_config"],
+            model_config=selection_task.outputs["model_config"],
+            pipeline_name=dsl.PIPELINE_JOB_RESOURCE_NAME_PLACEHOLDER,
+            run_id=dsl.PIPELINE_JOB_ID_PLACEHOLDER,
+            extra_train_data_path=data_loader_task.outputs["extra_train_data_path"],
+        )
+
+    # Stage 4: Leaderboard Evaluation
+    # Generate leaderboard from all refitted models
+    leaderboard_evaluation(
+        models=dsl.Collected(refit_task.outputs["model_artifact"]),
+        eval_metric=selection_task.outputs["eval_metric_name"],
+    )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,811 @@
+# PIPELINE DEFINITION
+# Name: autogluon-timeseries-training-pipeline
+# Description: End-to-end AutoGluon time series forecasting pipeline. Loads time series data from S3 in TimeSeriesDataFrame format (item_id, timestamp, target), trains multiple AutoGluon TimeSeries models (local statistical and global deep learning), ranks them by the chosen eval metric, and produces a leaderboard and the top N trained predictors for deployment. Supports optional known covariates and configurable prediction_length.
+# Inputs:
+#    id_column: str
+#    known_covariates_names: list
+#    prediction_length: int [Default: 1.0]
+#    target: str
+#    timestamp_column: str
+#    top_n: int [Default: 3.0]
+#    train_data_bucket_name: str
+#    train_data_file_key: str
+#    train_data_secret_name: str
+components:
+  comp-for-loop-1:
+    dag:
+      outputs:
+        artifacts:
+          pipelinechannel--timeseries-models-full-refit-model_artifact:
+            artifactSelectors:
+            - outputArtifactKey: model_artifact
+              producerSubtask: timeseries-models-full-refit
+      tasks:
+        timeseries-models-full-refit:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-timeseries-models-full-refit
+          inputs:
+            artifacts:
+              test_dataset:
+                componentInputArtifact: pipelinechannel--timeseries-data-loader-sampled_test_dataset
+            parameters:
+              extra_train_data_path:
+                componentInputParameter: pipelinechannel--timeseries-data-loader-extra_train_data_path
+              model_config:
+                componentInputParameter: pipelinechannel--timeseries-models-selection-model_config
+              model_name:
+                componentInputParameter: pipelinechannel--timeseries-models-selection-top_models-loop-item
+              pipeline_name:
+                runtimeValue:
+                  constant: '{{$.pipeline_job_resource_name}}'
+              predictor_path:
+                componentInputParameter: pipelinechannel--timeseries-models-selection-predictor_path
+              run_id:
+                runtimeValue:
+                  constant: '{{$.pipeline_job_uuid}}'
+              sampling_config:
+                componentInputParameter: pipelinechannel--timeseries-data-loader-sample_config
+              split_config:
+                componentInputParameter: pipelinechannel--timeseries-data-loader-split_config
+          taskInfo:
+            name: timeseries-models-full-refit
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--timeseries-data-loader-sampled_test_dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--timeseries-data-loader-extra_train_data_path:
+          parameterType: STRING
+        pipelinechannel--timeseries-data-loader-sample_config:
+          parameterType: STRUCT
+        pipelinechannel--timeseries-data-loader-split_config:
+          parameterType: STRUCT
+        pipelinechannel--timeseries-models-selection-model_config:
+          parameterType: STRUCT
+        pipelinechannel--timeseries-models-selection-predictor_path:
+          parameterType: STRING
+        pipelinechannel--timeseries-models-selection-top_models:
+          parameterType: LIST
+        pipelinechannel--timeseries-models-selection-top_models-loop-item:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        pipelinechannel--timeseries-models-full-refit-model_artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          isArtifactList: true
+  comp-leaderboard-evaluation:
+    executorLabel: exec-leaderboard-evaluation
+    inputDefinitions:
+      artifacts:
+        models:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          description: List of Model artifacts with "display_name" in metadata and
+            metrics at model.path/model_name/metrics/metrics.json.
+          isArtifactList: true
+      parameters:
+        eval_metric:
+          description: Metric name for ranking (e.g. "accuracy", "root_mean_squared_error");
+            leaderboard sorted by it descending.
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        html_artifact:
+          artifactType:
+            schemaTitle: system.HTML
+            schemaVersion: 0.0.1
+      parameters:
+        best_model:
+          parameterType: STRING
+  comp-timeseries-data-loader:
+    executorLabel: exec-timeseries-data-loader
+    inputDefinitions:
+      parameters:
+        bucket_name:
+          description: S3 bucket name containing the file.
+          parameterType: STRING
+        file_key:
+          description: S3 object key of the CSV file containing time series data.
+          parameterType: STRING
+        id_column:
+          description: Name of the column identifying each time series (item_id).
+          parameterType: STRING
+        selection_train_size:
+          defaultValue: 0.3
+          description: 'Fraction of train portion for model selection (default: 0.3).'
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        target:
+          description: Name of the target column to forecast.
+          parameterType: STRING
+        timestamp_column:
+          description: Name of the timestamp/datetime column.
+          parameterType: STRING
+        workspace_path:
+          description: PVC workspace directory where train CSVs will be written.
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        sampled_test_dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        extra_train_data_path:
+          parameterType: STRING
+        models_selection_train_data_path:
+          parameterType: STRING
+        sample_config:
+          parameterType: STRUCT
+        split_config:
+          parameterType: STRUCT
+  comp-timeseries-models-full-refit:
+    executorLabel: exec-timeseries-models-full-refit
+    inputDefinitions:
+      artifacts:
+        test_dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: Test dataset artifact for evaluation.
+      parameters:
+        extra_train_data_path:
+          description: Path to extra training data CSV.
+          parameterType: STRING
+        model_config:
+          description: Model configuration from selection phase.
+          parameterType: STRUCT
+        model_name:
+          description: Name of the model to refit.
+          parameterType: STRING
+        pipeline_name:
+          description: Pipeline name for metadata.
+          parameterType: STRING
+        predictor_path:
+          description: Path to the predictor from selection phase.
+          parameterType: STRING
+        run_id:
+          description: Pipeline run ID for metadata.
+          parameterType: STRING
+        sampling_config:
+          description: Configuration used for data sampling.
+          parameterType: STRUCT
+        split_config:
+          description: Configuration used for data splitting.
+          parameterType: STRUCT
+    outputDefinitions:
+      artifacts:
+        model_artifact:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-timeseries-models-selection:
+    executorLabel: exec-timeseries-models-selection
+    inputDefinitions:
+      artifacts:
+        test_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: Test dataset artifact for evaluation.
+      parameters:
+        eval_metric:
+          defaultValue: MASE
+          description: Evaluation metric (e.g., "MASE", "MAPE", "SMAPE").
+          isOptional: true
+          parameterType: STRING
+        id_column:
+          description: Name of the column identifying each time series (item_id).
+          parameterType: STRING
+        prediction_length:
+          defaultValue: 1.0
+          description: Forecast horizon (number of timesteps).
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        target:
+          description: Name of the target column to forecast.
+          parameterType: STRING
+        timestamp_column:
+          description: Name of the timestamp/datetime column.
+          parameterType: STRING
+        top_n:
+          description: Number of top models to select for refitting.
+          parameterType: NUMBER_INTEGER
+        train_data_path:
+          description: Path to the selection training CSV file.
+          parameterType: STRING
+        workspace_path:
+          description: Workspace directory where predictor will be saved.
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        eval_metric_name:
+          parameterType: STRING
+        model_config:
+          parameterType: STRUCT
+        predictor_path:
+          parameterType: STRING
+        top_models:
+          parameterType: LIST
+deploymentSpec:
+  executors:
+    exec-leaderboard-evaluation:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - leaderboard_evaluation
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef leaderboard_evaluation(\n    models: List[dsl.Model],\n    eval_metric:\
+          \ str,\n    html_artifact: dsl.Output[dsl.HTML],\n) -> NamedTuple(\"outputs\"\
+          , best_model=str):\n    \"\"\"Evaluate multiple AutoGluon models and generate\
+          \ a leaderboard.\n\n    This component aggregates evaluation results from\
+          \ a list of Model artifacts\n    (reading pre-computed metrics from JSON)\
+          \ and generates an HTML-formatted\n    leaderboard ranking the models by\
+          \ their performance metrics. Each model\n    artifact is expected to contain\
+          \ metrics at\n    model.path / model.metadata[\"display_name\"] / metrics\
+          \ / metrics.json.\n\n    Args:\n        models: List of Model artifacts\
+          \ with \"display_name\" in metadata and metrics at model.path/model_name/metrics/metrics.json.\n\
+          \        eval_metric: Metric name for ranking (e.g. \"accuracy\", \"root_mean_squared_error\"\
+          ); leaderboard sorted by it descending.\n        html_artifact: Output artifact\
+          \ for the HTML-formatted leaderboard (model names and metrics).\n\n    Raises:\n\
+          \        FileNotFoundError: If any model metrics path cannot be found.\n\
+          \        KeyError: If metadata lacks \"display_name\" or metrics JSON lacks\
+          \ the eval_metric key.\n\n    Example:\n        from kfp import dsl\n  \
+          \      from components.training.automl.autogluon_leaderboard_evaluation\
+          \ import (\n            leaderboard_evaluation\n        )\n\n        @dsl.pipeline(name=\"\
+          model-evaluation-pipeline\")\n        def evaluation_pipeline(trained_models):\n\
+          \            leaderboard = leaderboard_evaluation(\n                models=trained_models,\n\
+          \                eval_metric=\"root_mean_squared_error\",\n            )\n\
+          \            return leaderboard\n    \"\"\"  # noqa: E501\n    import json\n\
+          \    from pathlib import Path\n\n    import pandas as pd\n\n    # Modified\
+          \ theme colors for a lighter look. Only :root CSS vars are changed.\n  \
+          \  def _build_leaderboard_html(table_html: str, eval_metric: str, best_model_name:\
+          \ str, num_models: int) -> str:\n        \"\"\"Build a styled HTML document\
+          \ for the leaderboard (lighter theme).\"\"\"\n        return f\"\"\"<!DOCTYPE\
+          \ html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta\
+          \ name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n \
+          \ <title>AutoML Leaderboard</title>\n  <style>\n    :root {{\n      --bg:\
+          \ #f7fafc;\n      --surface: #ffffff;\n      --surface-hover: #f1f5f9;\n\
+          \      --border: #dde3eb;\n      --text: #23282e;\n      --text-muted: #5c6975;\n\
+          \      --accent: #2977ff;\n      --radius: 12px;\n      --font: 'Segoe UI',\
+          \ system-ui, -apple-system, sans-serif;\n    }}\n    * {{\n      box-sizing:\
+          \ border-box;\n    }}\n    body {{\n      margin: 0;\n      padding: 2rem;\n\
+          \      font-family: var(--font);\n      background: var(--bg);\n      color:\
+          \ var(--text);\n      line-height: 1.5;\n      min-height: 100vh;\n    }}\n\
+          \    .container {{\n      max-width: 960px;\n      margin: 0 auto;\n   \
+          \ }}\n    header {{\n      margin-bottom: 2rem;\n      padding-bottom: 1.5rem;\n\
+          \      border-bottom: 1px solid var(--border);\n      text-align: center;\n\
+          \    }}\n    h1 {{\n      margin: 0 0 0.25rem 0;\n      font-size: 1.75rem;\n\
+          \      font-weight: 600;\n    }}\n    h2 {{\n      margin: 0 0 0.5rem 0;\n\
+          \      font-size: 1.15rem;\n      font-weight: 400;\n      color: var(--text-muted);\n\
+          \    }}\n    .table-scroll {{\n      overflow-x: auto;\n      overflow-y:\
+          \ visible;\n      width: 100%;\n      max-width: 100%;\n      -webkit-overflow-scrolling:\
+          \ touch;\n      margin-bottom: 2rem;\n      border-radius: var(--radius);\n\
+          \      box-shadow: 0 4px 14px 0 #e6eaf1;\n    }}\n    .table-scroll::-webkit-scrollbar\
+          \ {{\n      height: 8px;\n    }}\n    .table-scroll::-webkit-scrollbar-track\
+          \ {{\n      background: var(--surface-hover);\n      border-radius: 4px;\n\
+          \    }}\n    .table-scroll::-webkit-scrollbar-thumb {{\n      background:\
+          \ var(--border);\n      border-radius: 4px;\n    }}\n    .table-scroll::-webkit-scrollbar-thumb:hover\
+          \ {{\n      background: var(--text-muted);\n    }}\n    table {{\n     \
+          \ width: 100%;\n      min-width: max-content;\n      border-collapse: collapse;\n\
+          \      background: var(--surface);\n      overflow: hidden;\n    }}\n  \
+          \  th, td {{\n      padding: 0.75rem 1rem;\n      border-bottom: 1px solid\
+          \ var(--border);\n      text-align: left;\n    }}\n    th {{\n      background:\
+          \ var(--surface-hover);\n      color: var(--text-muted);\n      text-transform:\
+          \ uppercase;\n      font-size: 0.95rem;\n      letter-spacing: 0.03em;\n\
+          \      font-weight: 600;\n      border-bottom: 2px solid var(--border);\n\
+          \    }}\n    tr:last-child td {{\n      border-bottom: none;\n    }}\n \
+          \   tr:hover {{\n      background: var(--surface-hover);\n      transition:\
+          \ background 0.08s;\n    }}\n    .caption {{\n      color: var(--text-muted);\n\
+          \      font-size: 0.96em;\n      margin-top: -0.8em;\n      margin-bottom:\
+          \ 2em;\n    }}\n    a {{\n      color: var(--accent);\n    }}\n    a:hover\
+          \ {{\n      text-decoration: underline;\n    }}\n    .table-wrapper {{\n\
+          \      display: flex;\n      justify-content: center;\n      width: 100%;\n\
+          \      max-width: 100%;\n    }}\n    .table-wrapper .table-scroll {{\n \
+          \     flex: 1 1 auto;\n      min-width: 0;\n    }}\n  </style>\n</head>\n\
+          <body>\n  <div class=\"container\">\n    <header>\n      <h1>AutoML Model\
+          \ Leaderboard</h1>\n      <h2>Ranking top {num_models} models by <b>{eval_metric}</b></h2>\n\
+          \      <div class=\"caption\">\n        <span>Best model: <b>{best_model_name}</b></span>\n\
+          \      </div>\n    </header>\n    <div class=\"table-wrapper\">\n    <div\
+          \ class=\"table-scroll\">\n    {table_html}\n    </div>\n    </div>\n  </div>\n\
+          </body>\n</html>\n\"\"\"\n\n    results = []\n    for model in models:\n\
+          \        metrics_path = Path(model.path) / model.metadata[\"display_name\"\
+          ] / \"metrics\" / \"metrics.json\"\n        with metrics_path.open(\"r\"\
+          ) as f:\n            eval_results = json.load(f)\n        display_name =\
+          \ model.metadata[\"display_name\"]\n        model_uri = f\"{model.uri.rstrip('/')}/{display_name}\"\
+          \n        predictor_uri = f\"{model_uri}/predictor/predictor.pkl\"\n   \
+          \     notebook_uri = f\"{model_uri}/notebooks/automl_predictor_notebook.ipynb\"\
+          \n        results.append(\n            {\n                \"model\": display_name,\n\
+          \                **eval_results,\n                \"notebook\": notebook_uri,\n\
+          \                \"predictor\": predictor_uri,\n            }\n        )\n\
+          \n    # Notice: AutoGluon follows the \"higher is better\" strategy for\
+          \ all metrics.\n    # This means that some metrics\u2014like log_loss and\
+          \ root_mean_squared_error\u2014will have their signs FLIPPED and are shown\
+          \ as negative. # noqa: E501\n    # This is to ensure that a higher value\
+          \ always means a better model, so users do not need to know about the metric's\
+          \ normal directionality when interpreting the leaderboard. # noqa: E501\n\
+          \    leaderboard_df = pd.DataFrame(results).sort_values(by=eval_metric,\
+          \ ascending=False)\n    n = len(leaderboard_df)\n    leaderboard_df.index\
+          \ = pd.RangeIndex(start=1, stop=n + 1, name=\"rank\")\n\n    html_table\
+          \ = leaderboard_df.to_html(classes=None, border=0, escape=True)\n\n    best_model_name\
+          \ = leaderboard_df.iloc[0][\"model\"]\n    html_content = _build_leaderboard_html(\n\
+          \        table_html=html_table,\n        eval_metric=eval_metric,\n    \
+          \    best_model_name=best_model_name,\n        num_models=len(leaderboard_df),\n\
+          \    )\n    with open(html_artifact.path, \"w\", encoding=\"utf-8\") as\
+          \ f:\n        f.write(html_content)\n\n    html_artifact.metadata[\"data\"\
+          ] = leaderboard_df.to_dict()\n    html_artifact.metadata[\"display_name\"\
+          ] = \"automl_leaderboard\"\n    return NamedTuple(\"outputs\", best_model=str)(best_model=best_model_name)\n\
+          \n"
+        image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
+    exec-timeseries-data-loader:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - timeseries_data_loader
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef timeseries_data_loader(\n    file_key: str,\n    bucket_name:\
+          \ str,\n    workspace_path: str,\n    target: str,\n    id_column: str,\n\
+          \    timestamp_column: str,\n    sampled_test_dataset: dsl.Output[dsl.Dataset],\n\
+          \    selection_train_size: float = 0.3,\n) -> NamedTuple(\n    \"outputs\"\
+          ,\n    sample_config=dict,\n    split_config=dict,\n    models_selection_train_data_path=str,\n\
+          \    extra_train_data_path=str,\n):\n    \"\"\"Load and split timeseries\
+          \ data from S3 for AutoGluon training.\n\n    This component loads time\
+          \ series data from S3, samples it (up to 1GB),\n    and performs a two-stage\
+          \ split for efficient AutoGluon training:\n    1. Primary split (80/20):\
+          \ test set vs train portion\n    2. Secondary split (30/70 of train): selection-train\
+          \ vs extra-train\n\n    The test set is written to S3 artifact, while train\
+          \ CSVs are written\n    to the PVC workspace for sharing across pipeline\
+          \ steps.\n\n    Args:\n        file_key: S3 object key of the CSV file containing\
+          \ time series data.\n        bucket_name: S3 bucket name containing the\
+          \ file.\n        workspace_path: PVC workspace directory where train CSVs\
+          \ will be written.\n        target: Name of the target column to forecast.\n\
+          \        id_column: Name of the column identifying each time series (item_id).\n\
+          \        timestamp_column: Name of the timestamp/datetime column.\n    \
+          \    sampled_test_dataset: Output dataset artifact for the test split.\n\
+          \        selection_train_size: Fraction of train portion for model selection\
+          \ (default: 0.3).\n\n    Returns:\n        NamedTuple: sample_config, split_config,\
+          \ models_selection_train_data_path, extra_train_data_path.\n    \"\"\"\n\
+          \    import logging\n    from pathlib import Path\n\n    import pandas as\
+          \ pd\n\n    logger = logging.getLogger(__name__)\n\n    # Create workspace\
+          \ datasets directory\n    datasets_dir = Path(workspace_path) / \"datasets\"\
+          \n    datasets_dir.mkdir(parents=True, exist_ok=True)\n\n    # SIMPLIFIED/MOCKED\
+          \ IMPLEMENTATION\n    logger.info(\"Creating mock timeseries data...\")\n\
+          \n    # Create mock time series data\n    dates = pd.date_range(\"2023-01-01\"\
+          , periods=100, freq=\"D\")\n    items = [\"item_A\", \"item_B\", \"item_C\"\
+          ]\n\n    data = []\n    for item in items:\n        for date in dates:\n\
+          \            data.append({id_column: item, timestamp_column: date, target:\
+          \ 100 + len(data) * 0.1})\n\n    df = pd.DataFrame(data)\n    logger.info(f\"\
+          Created mock data with {len(df)} rows, {len(items)} items, {len(dates)}\
+          \ timesteps\")\n\n    # Split: 80% train, 20% test\n    test_size = 0.2\n\
+          \    split_idx = int(len(df) * (1 - test_size))\n    train_df = df.iloc[:split_idx]\n\
+          \    test_df = df.iloc[split_idx:]\n\n    # Split train into selection-train\
+          \ and extra-train\n    selection_idx = int(len(train_df) * selection_train_size)\n\
+          \    selection_train_df = train_df.iloc[:selection_idx]\n    extra_train_df\
+          \ = train_df.iloc[selection_idx:]\n\n    logger.info(\n        f\"Split\
+          \ sizes - Test: {len(test_df)}, Selection: {len(selection_train_df)}, Extra:\
+          \ {len(extra_train_df)}\"\n    )\n\n    # Save test dataset to artifact\n\
+          \    test_df.to_csv(sampled_test_dataset.path, index=False)\n    logger.info(f\"\
+          Saved test dataset to {sampled_test_dataset.path}\")\n\n    # Save train\
+          \ datasets to workspace\n    selection_path = datasets_dir / \"models_selection_train_dataset.csv\"\
+          \n    extra_path = datasets_dir / \"extra_train_dataset.csv\"\n\n    selection_train_df.to_csv(selection_path,\
+          \ index=False)\n    extra_train_df.to_csv(extra_path, index=False)\n\n \
+          \   logger.info(f\"Saved selection train to {selection_path}\")\n    logger.info(f\"\
+          Saved extra train to {extra_path}\")\n\n    # Create sample config and split\
+          \ config\n    sample_config = {\n        \"sampling_method\": \"first_n_rows\"\
+          ,\n        \"total_rows\": len(df),\n        \"sampled_rows\": len(df),\n\
+          \    }\n\n    split_config = {\n        \"test_size\": test_size,\n    \
+          \    \"selection_train_size\": selection_train_size,\n        \"random_state\"\
+          : 42,\n    }\n\n    outputs = NamedTuple(\n        \"outputs\",\n      \
+          \  sample_config=dict,\n        split_config=dict,\n        models_selection_train_data_path=str,\n\
+          \        extra_train_data_path=str,\n    )\n    return outputs(\n      \
+          \  sample_config=sample_config,\n        split_config=split_config,\n  \
+          \      models_selection_train_data_path=str(selection_path),\n        extra_train_data_path=str(extra_path),\n\
+          \    )\n\n"
+        image: python:3.11
+    exec-timeseries-models-full-refit:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - timeseries_models_full_refit
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef timeseries_models_full_refit(\n    model_name: str,\n    test_dataset:\
+          \ dsl.Input[dsl.Dataset],\n    predictor_path: str,\n    sampling_config:\
+          \ dict,\n    split_config: dict,\n    model_config: dict,\n    pipeline_name:\
+          \ str,\n    run_id: str,\n    extra_train_data_path: str,\n    model_artifact:\
+          \ dsl.Output[dsl.Model],\n):\n    \"\"\"Refit a single AutoGluon timeseries\
+          \ model on full training data.\n\n    This component takes a model selected\
+          \ during the selection phase and\n    refits it on the full training dataset\
+          \ (selection + extra train data)\n    for improved performance. The refitted\
+          \ model is optimized and saved\n    for deployment.\n\n    The component\
+          \ uses a simplified/mocked implementation for demonstration.\n\n    Args:\n\
+          \        model_name: Name of the model to refit.\n        test_dataset:\
+          \ Test dataset artifact for evaluation.\n        predictor_path: Path to\
+          \ the predictor from selection phase.\n        sampling_config: Configuration\
+          \ used for data sampling.\n        split_config: Configuration used for\
+          \ data splitting.\n        model_config: Model configuration from selection\
+          \ phase.\n        pipeline_name: Pipeline name for metadata.\n        run_id:\
+          \ Pipeline run ID for metadata.\n        extra_train_data_path: Path to\
+          \ extra training data CSV.\n        model_artifact: Output artifact for\
+          \ the refitted model.\n    \"\"\"\n    import json\n    import logging\n\
+          \    from pathlib import Path\n\n    import pandas as pd\n\n    logger =\
+          \ logging.getLogger(__name__)\n\n    # SIMPLIFIED/MOCKED IMPLEMENTATION\n\
+          \    logger.info(f\"Refitting model: {model_name}\")\n    logger.info(f\"\
+          Predictor path: {predictor_path}\")\n    logger.info(f\"Extra train data:\
+          \ {extra_train_data_path}\")\n\n    # Load extra training data\n    extra_train_df\
+          \ = pd.read_csv(extra_train_data_path)\n    logger.info(f\"Loaded {len(extra_train_df)}\
+          \ extra training rows\")\n\n    # Load test data\n    test_df = pd.read_csv(test_dataset.path)\n\
+          \    logger.info(f\"Loaded {len(test_df)} test rows\")\n\n    # Mock: Simulate\
+          \ refitting on full data\n    logger.info(f\"Refitting {model_name} on full\
+          \ training dataset...\")\n\n    # Mock: Improved performance after refitting\n\
+          \    mock_metrics = {\n        \"MASE\": 0.72,  # Better than selection\
+          \ phase\n        \"MAPE\": 12.5,\n        \"SMAPE\": 11.8,\n        \"MSE\"\
+          : 45.2,\n        \"RMSE\": 6.72,\n    }\n\n    logger.info(f\"Refitting\
+          \ completed. Metrics: {mock_metrics}\")\n\n    # Create model output directory\n\
+          \    model_name_full = f\"{model_name}_FULL\"\n    output_path = Path(model_artifact.path)\
+          \ / model_name_full\n    output_path.mkdir(parents=True, exist_ok=True)\n\
+          \n    # Save mock predictor\n    predictor_output = output_path / \"predictor\"\
+          \n    predictor_output.mkdir(parents=True, exist_ok=True)\n\n    predictor_metadata\
+          \ = {\n        \"model_name\": model_name_full,\n        \"base_model\"\
+          : model_name,\n        \"refitted\": True,\n        \"prediction_length\"\
+          : model_config.get(\"prediction_length\", 1),\n        \"eval_metric\":\
+          \ model_config.get(\"eval_metric\", \"MASE\"),\n        \"target\": model_config.get(\"\
+          target\"),\n    }\n\n    with open(predictor_output / \"predictor_metadata.json\"\
+          , \"w\") as f:\n        json.dump(predictor_metadata, f, indent=2)\n\n \
+          \   logger.info(f\"Saved predictor to {predictor_output}\")\n\n    # Save\
+          \ metrics\n    metrics_path = output_path / \"metrics\"\n    metrics_path.mkdir(parents=True,\
+          \ exist_ok=True)\n\n    with open(metrics_path / \"metrics.json\", \"w\"\
+          ) as f:\n        json.dump(mock_metrics, f, indent=2)\n\n    logger.info(f\"\
+          Saved metrics to {metrics_path}\")\n\n    # Set artifact metadata\n    model_artifact.metadata[\"\
+          display_name\"] = model_name_full\n    model_artifact.metadata[\"context\"\
+          ] = {\n        \"model_config\": model_config,\n        \"sampling_config\"\
+          : sampling_config,\n        \"split_config\": split_config,\n        \"\
+          metrics\": {\"test_data\": mock_metrics},\n        \"location\": {\n   \
+          \         \"model_directory\": model_name_full,\n            \"predictor\"\
+          : f\"{model_name_full}/predictor\",\n            \"metrics\": f\"{model_name_full}/metrics\"\
+          ,\n        },\n        \"pipeline_info\": {\n            \"pipeline_name\"\
+          : pipeline_name,\n            \"run_id\": run_id,\n        },\n    }\n\n\
+          \    logger.info(f\"Model artifact created: {model_name_full}\")\n\n"
+        image: python:3.11
+    exec-timeseries-models-selection:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - timeseries_models_selection
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef timeseries_models_selection(\n    target: str,\n    id_column:\
+          \ str,\n    timestamp_column: str,\n    train_data_path: str,\n    test_data:\
+          \ dsl.Input[dsl.Dataset],\n    top_n: int,\n    workspace_path: str,\n \
+          \   prediction_length: int = 1,\n    eval_metric: str = \"MASE\",\n) ->\
+          \ NamedTuple(\n    \"outputs\",\n    top_models=List[str],\n    predictor_path=str,\n\
+          \    eval_metric_name=str,\n    model_config=dict,\n):\n    \"\"\"Train\
+          \ and select top N AutoGluon timeseries models.\n\n    This component trains\
+          \ multiple AutoGluon TimeSeries models on the\n    selection training data,\
+          \ evaluates them on the test set, and selects\n    the top N performers\
+          \ based on the specified evaluation metric.\n\n    The component uses a\
+          \ simplified/mocked implementation for demonstration.\n\n    Args:\n   \
+          \     target: Name of the target column to forecast.\n        id_column:\
+          \ Name of the column identifying each time series (item_id).\n        timestamp_column:\
+          \ Name of the timestamp/datetime column.\n        train_data_path: Path\
+          \ to the selection training CSV file.\n        test_data: Test dataset artifact\
+          \ for evaluation.\n        top_n: Number of top models to select for refitting.\n\
+          \        workspace_path: Workspace directory where predictor will be saved.\n\
+          \        prediction_length: Forecast horizon (number of timesteps).\n  \
+          \      eval_metric: Evaluation metric (e.g., \"MASE\", \"MAPE\", \"SMAPE\"\
+          ).\n\n    Returns:\n        NamedTuple: top_models list, predictor_path,\
+          \ eval_metric_name, model_config.\n    \"\"\"\n    import json\n    import\
+          \ logging\n    from pathlib import Path\n\n    import pandas as pd\n\n \
+          \   logger = logging.getLogger(__name__)\n\n    # SIMPLIFIED/MOCKED IMPLEMENTATION\n\
+          \    logger.info(\"Loading training data from %s\", train_data_path)\n \
+          \   train_df = pd.read_csv(train_data_path)\n    logger.info(f\"Loaded {len(train_df)}\
+          \ training rows\")\n\n    logger.info(\"Loading test data from %s\", test_data.path)\n\
+          \    test_df = pd.read_csv(test_data.path)\n    logger.info(f\"Loaded {len(test_df)}\
+          \ test rows\")\n\n    # Create predictor path in workspace\n    predictor_path\
+          \ = Path(workspace_path) / \"timeseries_predictor\"\n    predictor_path.mkdir(parents=True,\
+          \ exist_ok=True)\n\n    logger.info(f\"Training models with prediction_length={prediction_length},\
+          \ eval_metric={eval_metric}\")\n\n    # Mock: Simulate training multiple\
+          \ models\n    all_models = [\n        \"DeepAR\",\n        \"TemporalFusionTransformer\"\
+          ,\n        \"AutoARIMA\",\n        \"AutoETS\",\n        \"Theta\",\n  \
+          \      \"SeasonalNaive\",\n        \"DirectTabular\",\n        \"RecursiveTabular\"\
+          ,\n    ]\n\n    # Mock: Simulate model scores (lower is better for MASE)\n\
+          \    model_scores = {\n        \"DeepAR\": 0.85,\n        \"TemporalFusionTransformer\"\
+          : 0.92,\n        \"AutoARIMA\": 0.78,\n        \"AutoETS\": 0.81,\n    \
+          \    \"Theta\": 0.88,\n        \"SeasonalNaive\": 1.15,\n        \"DirectTabular\"\
+          : 0.95,\n        \"RecursiveTabular\": 0.99,\n    }\n\n    # Select top\
+          \ N models\n    sorted_models = sorted(model_scores.items(), key=lambda\
+          \ x: x[1])\n    top_models = [model for model, score in sorted_models[:top_n]]\n\
+          \n    logger.info(f\"Top {top_n} models selected: {top_models}\")\n    logger.info(f\"\
+          Best model: {top_models[0]} with {eval_metric}={sorted_models[0][1]}\")\n\
+          \n    # Save mock predictor metadata\n    predictor_metadata = {\n     \
+          \   \"target\": target,\n        \"id_column\": id_column,\n        \"timestamp_column\"\
+          : timestamp_column,\n        \"prediction_length\": prediction_length,\n\
+          \        \"eval_metric\": eval_metric,\n        \"trained_models\": all_models,\n\
+          \        \"top_models\": top_models,\n        \"model_scores\": model_scores,\n\
+          \    }\n\n    with open(predictor_path / \"predictor_metadata.json\", \"\
+          w\") as f:\n        json.dump(predictor_metadata, f, indent=2)\n\n    logger.info(f\"\
+          Saved predictor metadata to {predictor_path}\")\n\n    # Create model config\n\
+          \    model_config = {\n        \"prediction_length\": prediction_length,\n\
+          \        \"eval_metric\": eval_metric,\n        \"target\": target,\n  \
+          \      \"id_column\": id_column,\n        \"timestamp_column\": timestamp_column,\n\
+          \        \"num_models_trained\": len(all_models),\n    }\n\n    outputs\
+          \ = NamedTuple(\n        \"outputs\",\n        top_models=List[str],\n \
+          \       predictor_path=str,\n        eval_metric_name=str,\n        model_config=dict,\n\
+          \    )\n    return outputs(\n        top_models=top_models,\n        predictor_path=str(predictor_path),\n\
+          \        eval_metric_name=eval_metric,\n        model_config=model_config,\n\
+          \    )\n\n"
+        image: python:3.11
+pipelineInfo:
+  description: End-to-end AutoGluon time series forecasting pipeline. Loads time series
+    data from S3 in TimeSeriesDataFrame format (item_id, timestamp, target), trains
+    multiple AutoGluon TimeSeries models (local statistical and global deep learning),
+    ranks them by the chosen eval metric, and produces a leaderboard and the top N
+    trained predictors for deployment. Supports optional known covariates and configurable
+    prediction_length.
+  name: autogluon-timeseries-training-pipeline
+root:
+  dag:
+    tasks:
+      for-loop-1:
+        componentRef:
+          name: comp-for-loop-1
+        dependentTasks:
+        - timeseries-data-loader
+        - timeseries-models-selection
+        inputs:
+          artifacts:
+            pipelinechannel--timeseries-data-loader-sampled_test_dataset:
+              taskOutputArtifact:
+                outputArtifactKey: sampled_test_dataset
+                producerTask: timeseries-data-loader
+          parameters:
+            pipelinechannel--timeseries-data-loader-extra_train_data_path:
+              taskOutputParameter:
+                outputParameterKey: extra_train_data_path
+                producerTask: timeseries-data-loader
+            pipelinechannel--timeseries-data-loader-sample_config:
+              taskOutputParameter:
+                outputParameterKey: sample_config
+                producerTask: timeseries-data-loader
+            pipelinechannel--timeseries-data-loader-split_config:
+              taskOutputParameter:
+                outputParameterKey: split_config
+                producerTask: timeseries-data-loader
+            pipelinechannel--timeseries-models-selection-model_config:
+              taskOutputParameter:
+                outputParameterKey: model_config
+                producerTask: timeseries-models-selection
+            pipelinechannel--timeseries-models-selection-predictor_path:
+              taskOutputParameter:
+                outputParameterKey: predictor_path
+                producerTask: timeseries-models-selection
+            pipelinechannel--timeseries-models-selection-top_models:
+              taskOutputParameter:
+                outputParameterKey: top_models
+                producerTask: timeseries-models-selection
+        iteratorPolicy:
+          parallelismLimit: 2
+        parameterIterator:
+          itemInput: pipelinechannel--timeseries-models-selection-top_models-loop-item
+          items:
+            inputParameter: pipelinechannel--timeseries-models-selection-top_models
+        taskInfo:
+          name: for-loop-1
+      leaderboard-evaluation:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-leaderboard-evaluation
+        dependentTasks:
+        - for-loop-1
+        - timeseries-models-selection
+        inputs:
+          artifacts:
+            models:
+              taskOutputArtifact:
+                outputArtifactKey: pipelinechannel--timeseries-models-full-refit-model_artifact
+                producerTask: for-loop-1
+          parameters:
+            eval_metric:
+              taskOutputParameter:
+                outputParameterKey: eval_metric_name
+                producerTask: timeseries-models-selection
+        taskInfo:
+          name: leaderboard-evaluation
+      timeseries-data-loader:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-timeseries-data-loader
+        inputs:
+          parameters:
+            bucket_name:
+              componentInputParameter: train_data_bucket_name
+            file_key:
+              componentInputParameter: train_data_file_key
+            id_column:
+              componentInputParameter: id_column
+            target:
+              componentInputParameter: target
+            timestamp_column:
+              componentInputParameter: timestamp_column
+            workspace_path:
+              runtimeValue:
+                constant: '{{$.workspace_path}}'
+        taskInfo:
+          name: timeseries-data-loader
+      timeseries-models-selection:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-timeseries-models-selection
+        dependentTasks:
+        - timeseries-data-loader
+        inputs:
+          artifacts:
+            test_data:
+              taskOutputArtifact:
+                outputArtifactKey: sampled_test_dataset
+                producerTask: timeseries-data-loader
+          parameters:
+            id_column:
+              componentInputParameter: id_column
+            prediction_length:
+              componentInputParameter: prediction_length
+            target:
+              componentInputParameter: target
+            timestamp_column:
+              componentInputParameter: timestamp_column
+            top_n:
+              componentInputParameter: top_n
+            train_data_path:
+              taskOutputParameter:
+                outputParameterKey: models_selection_train_data_path
+                producerTask: timeseries-data-loader
+            workspace_path:
+              runtimeValue:
+                constant: '{{$.workspace_path}}'
+        taskInfo:
+          name: timeseries-models-selection
+  inputDefinitions:
+    parameters:
+      id_column:
+        parameterType: STRING
+      known_covariates_names:
+        isOptional: true
+        parameterType: LIST
+      prediction_length:
+        defaultValue: 1.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      target:
+        parameterType: STRING
+      timestamp_column:
+        parameterType: STRING
+      top_n:
+        defaultValue: 3.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      train_data_bucket_name:
+        parameterType: STRING
+      train_data_file_key:
+        parameterType: STRING
+      train_data_secret_name:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.15.2
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-timeseries-data-loader:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: AWS_ACCESS_KEY_ID
+              secretKey: AWS_ACCESS_KEY_ID
+            - envVar: AWS_SECRET_ACCESS_KEY
+              secretKey: AWS_SECRET_ACCESS_KEY
+            - envVar: AWS_S3_ENDPOINT
+              secretKey: AWS_S3_ENDPOINT
+            - envVar: AWS_DEFAULT_REGION
+              secretKey: AWS_DEFAULT_REGION
+            optional: true
+            secretNameParameter:
+              componentInputParameter: train_data_secret_name
+    pipelineConfig:
+      workspace:
+        kubernetes:
+          pvcSpecPatch:
+            accessModes:
+            - ReadWriteOnce
+            storageClassName: gp3-csi
+        size: 1Gi
