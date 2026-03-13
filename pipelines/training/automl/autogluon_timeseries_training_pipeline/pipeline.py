@@ -207,5 +207,5 @@ if __name__ == "__main__":
 
     Compiler().compile(
         autogluon_timeseries_training_pipeline,
-        package_path=__file__.replace(".py", "_pipeline.yaml"),
+        package_path=__file__.replace(".py", ".yaml"),
     )
