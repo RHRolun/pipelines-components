@@ -105,6 +105,7 @@ def timeseries_models_selection(
         eval_metric=eval_metric,
         path=str(predictor_path),
         verbosity=2,
+        known_covariates_names=known_covariates_names,
     )
 
     # Fit the predictor
@@ -114,7 +115,6 @@ def timeseries_models_selection(
             train_data=train_ts,
             presets=DEFAULT_PRESETS,
             time_limit=DEFAULT_TIME_LIMIT,
-            known_covariates_names=known_covariates_names,
         )
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
