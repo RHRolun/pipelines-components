@@ -22,7 +22,8 @@ components:
               producerSubtask: timeseries-models-full-refit
       tasks:
         timeseries-models-full-refit:
-          cachingOptions: {}
+          cachingOptions:
+            enableCache: true
           componentRef:
             name: comp-timeseries-models-full-refit
           inputs:
@@ -197,20 +198,39 @@ components:
       parameters:
         eval_metric:
           defaultValue: MASE
-          description: Evaluation metric (e.g., "MASE", "MAPE", "SMAPE").
+          description: Evaluation metric (e.g., "MASE", "MAPE", "SMAPE", "WQL").
           isOptional: true
           parameterType: STRING
+        excluded_model_types:
+          description: Optional list of model types to exclude from training.
+          isOptional: true
+          parameterType: LIST
         id_column:
           description: Name of the column identifying each time series (item_id).
           parameterType: STRING
+        known_covariates_names:
+          description: Optional list of known covariate column names.
+          isOptional: true
+          parameterType: LIST
         prediction_length:
           defaultValue: 1.0
           description: Forecast horizon (number of timesteps).
           isOptional: true
           parameterType: NUMBER_INTEGER
+        preset:
+          defaultValue: medium_quality
+          description: AutoGluon quality preset ("fast_training", "medium_quality",
+            "high_quality", "best_quality").
+          isOptional: true
+          parameterType: STRING
         target:
           description: Name of the target column to forecast.
           parameterType: STRING
+        time_limit:
+          defaultValue: 3600.0
+          description: 'Training time limit in seconds (default: 3600).'
+          isOptional: true
+          parameterType: NUMBER_INTEGER
         timestamp_column:
           description: Name of the timestamp/datetime column.
           parameterType: STRING
@@ -544,9 +564,10 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
-          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
-          $0\" \"$@\"\n"
+          \ python3 -m pip install --quiet --no-warn-script-location 'autogluon.timeseries==1.5.0'\
+          \ 'pandas==2.2.3'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.15.2' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
         - sh
         - -ec
         - 'program_path=$(mktemp -d)
@@ -561,63 +582,94 @@ deploymentSpec:
           \ *\n\ndef timeseries_models_selection(\n    target: str,\n    id_column:\
           \ str,\n    timestamp_column: str,\n    train_data_path: str,\n    test_data:\
           \ dsl.Input[dsl.Dataset],\n    top_n: int,\n    workspace_path: str,\n \
-          \   prediction_length: int = 1,\n    eval_metric: str = \"MASE\",\n) ->\
-          \ NamedTuple(\n    \"outputs\",\n    top_models=List[str],\n    predictor_path=str,\n\
-          \    eval_metric_name=str,\n    model_config=dict,\n):\n    \"\"\"Train\
-          \ and select top N AutoGluon timeseries models.\n\n    This component trains\
-          \ multiple AutoGluon TimeSeries models on the\n    selection training data,\
-          \ evaluates them on the test set, and selects\n    the top N performers\
-          \ based on the specified evaluation metric.\n\n    The component uses a\
-          \ simplified/mocked implementation for demonstration.\n\n    Args:\n   \
-          \     target: Name of the target column to forecast.\n        id_column:\
-          \ Name of the column identifying each time series (item_id).\n        timestamp_column:\
-          \ Name of the timestamp/datetime column.\n        train_data_path: Path\
-          \ to the selection training CSV file.\n        test_data: Test dataset artifact\
-          \ for evaluation.\n        top_n: Number of top models to select for refitting.\n\
-          \        workspace_path: Workspace directory where predictor will be saved.\n\
-          \        prediction_length: Forecast horizon (number of timesteps).\n  \
-          \      eval_metric: Evaluation metric (e.g., \"MASE\", \"MAPE\", \"SMAPE\"\
-          ).\n\n    Returns:\n        NamedTuple: top_models list, predictor_path,\
-          \ eval_metric_name, model_config.\n    \"\"\"\n    import json\n    import\
-          \ logging\n    from pathlib import Path\n\n    import pandas as pd\n\n \
-          \   logger = logging.getLogger(__name__)\n\n    # SIMPLIFIED/MOCKED IMPLEMENTATION\n\
-          \    logger.info(\"Loading training data from %s\", train_data_path)\n \
-          \   train_df = pd.read_csv(train_data_path)\n    logger.info(f\"Loaded {len(train_df)}\
-          \ training rows\")\n\n    logger.info(\"Loading test data from %s\", test_data.path)\n\
-          \    test_df = pd.read_csv(test_data.path)\n    logger.info(f\"Loaded {len(test_df)}\
-          \ test rows\")\n\n    # Create predictor path in workspace\n    predictor_path\
-          \ = Path(workspace_path) / \"timeseries_predictor\"\n    predictor_path.mkdir(parents=True,\
-          \ exist_ok=True)\n\n    logger.info(f\"Training models with prediction_length={prediction_length},\
-          \ eval_metric={eval_metric}\")\n\n    # Mock: Simulate training multiple\
-          \ models\n    all_models = [\n        \"DeepAR\",\n        \"TemporalFusionTransformer\"\
-          ,\n        \"AutoARIMA\",\n        \"AutoETS\",\n        \"Theta\",\n  \
-          \      \"SeasonalNaive\",\n        \"DirectTabular\",\n        \"RecursiveTabular\"\
-          ,\n    ]\n\n    # Mock: Simulate model scores (lower is better for MASE)\n\
-          \    model_scores = {\n        \"DeepAR\": 0.85,\n        \"TemporalFusionTransformer\"\
-          : 0.92,\n        \"AutoARIMA\": 0.78,\n        \"AutoETS\": 0.81,\n    \
-          \    \"Theta\": 0.88,\n        \"SeasonalNaive\": 1.15,\n        \"DirectTabular\"\
-          : 0.95,\n        \"RecursiveTabular\": 0.99,\n    }\n\n    # Select top\
-          \ N models\n    sorted_models = sorted(model_scores.items(), key=lambda\
-          \ x: x[1])\n    top_models = [model for model, score in sorted_models[:top_n]]\n\
-          \n    logger.info(f\"Top {top_n} models selected: {top_models}\")\n    logger.info(f\"\
-          Best model: {top_models[0]} with {eval_metric}={sorted_models[0][1]}\")\n\
-          \n    # Save mock predictor metadata\n    predictor_metadata = {\n     \
-          \   \"target\": target,\n        \"id_column\": id_column,\n        \"timestamp_column\"\
+          \   prediction_length: int = 1,\n    eval_metric: str = \"MASE\",\n    preset:\
+          \ str = \"medium_quality\",\n    time_limit: int = 3600,\n    known_covariates_names:\
+          \ Optional[List[str]] = None,\n    excluded_model_types: Optional[List[str]]\
+          \ = None,\n) -> NamedTuple(\n    \"outputs\",\n    top_models=List[str],\n\
+          \    predictor_path=str,\n    eval_metric_name=str,\n    model_config=dict,\n\
+          ):\n    \"\"\"Train and select top N AutoGluon timeseries models based on\
+          \ leaderboard.\n\n    This component trains multiple AutoGluon TimeSeries\
+          \ models using TimeSeriesPredictor\n    on the selection training data,\
+          \ evaluates them on the test set, and selects the\n    top N performers\
+          \ based on the leaderboard ranking.\n\n    The TimeSeriesPredictor automatically\
+          \ trains various model types (DeepAR, TFT,\n    ARIMA, ETS, Theta, etc.)\
+          \ and ranks them by the evaluation metric. This component\n    selects the\
+          \ top N models from the leaderboard for refitting on the full dataset.\n\
+          \n    Args:\n        target: Name of the target column to forecast.\n  \
+          \      id_column: Name of the column identifying each time series (item_id).\n\
+          \        timestamp_column: Name of the timestamp/datetime column.\n    \
+          \    train_data_path: Path to the selection training CSV file.\n       \
+          \ test_data: Test dataset artifact for evaluation.\n        top_n: Number\
+          \ of top models to select for refitting.\n        workspace_path: Workspace\
+          \ directory where predictor will be saved.\n        prediction_length: Forecast\
+          \ horizon (number of timesteps).\n        eval_metric: Evaluation metric\
+          \ (e.g., \"MASE\", \"MAPE\", \"SMAPE\", \"WQL\").\n        preset: AutoGluon\
+          \ quality preset (\"fast_training\", \"medium_quality\", \"high_quality\"\
+          , \"best_quality\").\n        time_limit: Training time limit in seconds\
+          \ (default: 3600).\n        known_covariates_names: Optional list of known\
+          \ covariate column names.\n        excluded_model_types: Optional list of\
+          \ model types to exclude from training.\n\n    Returns:\n        NamedTuple:\
+          \ top_models list, predictor_path, eval_metric_name, model_config.\n   \
+          \ \"\"\"\n    import json\n    import logging\n    from pathlib import Path\n\
+          \n    import pandas as pd\n    from autogluon.timeseries import TimeSeriesDataFrame,\
+          \ TimeSeriesPredictor\n\n    logger = logging.getLogger(__name__)\n\n  \
+          \  # Load training data\n    logger.info(\"Loading training data from %s\"\
+          , train_data_path)\n    train_df = pd.read_csv(train_data_path)\n    logger.info(f\"\
+          Loaded {len(train_df)} training rows\")\n\n    # Load test data\n    logger.info(\"\
+          Loading test data from %s\", test_data.path)\n    test_df = pd.read_csv(test_data.path)\n\
+          \    logger.info(f\"Loaded {len(test_df)} test rows\")\n\n    # Convert\
+          \ training data to TimeSeriesDataFrame\n    logger.info(\n        f\"Converting\
+          \ data to TimeSeriesDataFrame with id_column={id_column}, timestamp_column={timestamp_column}\"\
+          \n    )\n    train_ts = TimeSeriesDataFrame.from_data_frame(\n        train_df,\n\
+          \        id_column=id_column,\n        timestamp_column=timestamp_column,\n\
+          \    )\n    logger.info(f\"Created TimeSeriesDataFrame with {len(train_ts)}\
+          \ rows, {train_ts.num_items} items\")\n\n    # Convert test data to TimeSeriesDataFrame\n\
+          \    test_ts = TimeSeriesDataFrame.from_data_frame(\n        test_df,\n\
+          \        id_column=id_column,\n        timestamp_column=timestamp_column,\n\
+          \    )\n\n    # Create predictor path in workspace\n    predictor_path =\
+          \ Path(workspace_path) / \"timeseries_predictor\"\n\n    logger.info(f\"\
+          Creating TimeSeriesPredictor with prediction_length={prediction_length}\"\
+          )\n    logger.info(f\"Evaluation metric: {eval_metric}, Preset: {preset},\
+          \ Time limit: {time_limit}s\")\n\n    # Create TimeSeriesPredictor\n   \
+          \ predictor = TimeSeriesPredictor(\n        prediction_length=prediction_length,\n\
+          \        target=target,\n        eval_metric=eval_metric,\n        path=str(predictor_path),\n\
+          \        verbosity=2,\n    )\n\n    # Fit the predictor\n    logger.info(\"\
+          Starting model training...\")\n    try:\n        predictor.fit(\n      \
+          \      train_data=train_ts,\n            presets=preset,\n            time_limit=time_limit,\n\
+          \            excluded_model_types=excluded_model_types,\n            known_covariates_names=known_covariates_names,\n\
+          \        )\n    except Exception as e:\n        logger.error(f\"Training\
+          \ failed: {str(e)}\")\n        raise ValueError(f\"TimeSeriesPredictor training\
+          \ failed: {str(e)}\")\n\n    logger.info(\"Training completed successfully\"\
+          )\n\n    # Get leaderboard to select top N models\n    logger.info(\"Generating\
+          \ leaderboard...\")\n    try:\n        leaderboard = predictor.leaderboard(test_ts)\n\
+          \        logger.info(f\"Leaderboard:\\n{leaderboard.to_string()}\")\n  \
+          \  except Exception as e:\n        logger.error(f\"Leaderboard generation\
+          \ failed: {str(e)}\")\n        raise ValueError(f\"Failed to generate leaderboard:\
+          \ {str(e)}\")\n\n    # Select top N models from leaderboard\n    top_models\
+          \ = leaderboard.head(top_n)[\"model\"].values.tolist()\n    logger.info(f\"\
+          Top {top_n} models selected from leaderboard: {top_models}\")\n    logger.info(f\"\
+          Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][eval_metric]}\"\
+          )\n\n    # Save predictor metadata\n    predictor_metadata = {\n       \
+          \ \"target\": target,\n        \"id_column\": id_column,\n        \"timestamp_column\"\
           : timestamp_column,\n        \"prediction_length\": prediction_length,\n\
-          \        \"eval_metric\": eval_metric,\n        \"trained_models\": all_models,\n\
-          \        \"top_models\": top_models,\n        \"model_scores\": model_scores,\n\
-          \    }\n\n    with open(predictor_path / \"predictor_metadata.json\", \"\
-          w\") as f:\n        json.dump(predictor_metadata, f, indent=2)\n\n    logger.info(f\"\
-          Saved predictor metadata to {predictor_path}\")\n\n    # Create model config\n\
+          \        \"eval_metric\": eval_metric,\n        \"preset\": preset,\n  \
+          \      \"time_limit\": time_limit,\n        \"top_models\": top_models,\n\
+          \        \"num_models_trained\": len(leaderboard),\n        \"leaderboard_top_n\"\
+          : leaderboard.head(top_n).to_dict(orient=\"records\"),\n    }\n\n    with\
+          \ open(predictor_path / \"predictor_metadata.json\", \"w\") as f:\n    \
+          \    json.dump(predictor_metadata, f, indent=2)\n\n    logger.info(f\"Saved\
+          \ predictor metadata to {predictor_path}\")\n\n    # Create model config\n\
           \    model_config = {\n        \"prediction_length\": prediction_length,\n\
           \        \"eval_metric\": eval_metric,\n        \"target\": target,\n  \
           \      \"id_column\": id_column,\n        \"timestamp_column\": timestamp_column,\n\
-          \        \"num_models_trained\": len(all_models),\n    }\n\n    outputs\
-          \ = NamedTuple(\n        \"outputs\",\n        top_models=List[str],\n \
-          \       predictor_path=str,\n        eval_metric_name=str,\n        model_config=dict,\n\
-          \    )\n    return outputs(\n        top_models=top_models,\n        predictor_path=str(predictor_path),\n\
-          \        eval_metric_name=eval_metric,\n        model_config=model_config,\n\
-          \    )\n\n"
+          \        \"preset\": preset,\n        \"time_limit\": time_limit,\n    \
+          \    \"known_covariates_names\": known_covariates_names or [],\n       \
+          \ \"excluded_model_types\": excluded_model_types or [],\n        \"num_models_trained\"\
+          : len(leaderboard),\n    }\n\n    outputs = NamedTuple(\n        \"outputs\"\
+          ,\n        top_models=List[str],\n        predictor_path=str,\n        eval_metric_name=str,\n\
+          \        model_config=dict,\n    )\n    return outputs(\n        top_models=top_models,\n\
+          \        predictor_path=str(predictor_path),\n        eval_metric_name=eval_metric,\n\
+          \        model_config=model_config,\n    )\n\n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
 pipelineInfo:
   description: End-to-end AutoGluon time series forecasting pipeline. Loads time series
@@ -676,7 +728,8 @@ root:
         taskInfo:
           name: for-loop-1
       leaderboard-evaluation:
-        cachingOptions: {}
+        cachingOptions:
+          enableCache: true
         componentRef:
           name: comp-leaderboard-evaluation
         dependentTasks:
@@ -696,7 +749,8 @@ root:
         taskInfo:
           name: leaderboard-evaluation
       timeseries-data-loader:
-        cachingOptions: {}
+        cachingOptions:
+          enableCache: true
         componentRef:
           name: comp-timeseries-data-loader
         inputs:
@@ -717,7 +771,8 @@ root:
         taskInfo:
           name: timeseries-data-loader
       timeseries-models-selection:
-        cachingOptions: {}
+        cachingOptions:
+          enableCache: true
         componentRef:
           name: comp-timeseries-models-selection
         dependentTasks:
@@ -731,6 +786,8 @@ root:
           parameters:
             id_column:
               componentInputParameter: id_column
+            known_covariates_names:
+              componentInputParameter: known_covariates_names
             prediction_length:
               componentInputParameter: prediction_length
             target:

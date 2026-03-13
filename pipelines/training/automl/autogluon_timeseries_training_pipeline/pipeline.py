@@ -176,6 +176,7 @@ def autogluon_timeseries_training_pipeline(
         top_n=top_n,
         workspace_path=dsl.WORKSPACE_PATH_PLACEHOLDER,
         prediction_length=prediction_length,
+        known_covariates_names=known_covariates_names,
     )
 
     # Stage 3: Model Refitting
