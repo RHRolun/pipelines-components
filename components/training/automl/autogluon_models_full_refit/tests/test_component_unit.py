@@ -1,7 +1,5 @@
 """Tests for the autogluon_models_full_refit component."""
 
-# Assisted-by: Cursor
-
 import json
 import shutil
 import sys
@@ -11,21 +9,25 @@ from unittest import mock
 
 import pytest
 
-# Inject mock modules so @mock.patch("pandas...") and @mock.patch("autogluon...") resolve (yoda-style).
-if "pandas" not in sys.modules:
-    sys.modules["pandas"] = mock.MagicMock()
-if "autogluon" not in sys.modules:
-    _ag = mock.MagicMock()
-    _ag.__path__ = []
-    _ag.__spec__ = None
-    sys.modules["autogluon"] = _ag
-for sub in ("autogluon.tabular", "autogluon.core", "autogluon.core.metrics"):
-    if sub not in sys.modules:
-        _m = mock.MagicMock()
-        _m.__spec__ = None
-        if sub == "autogluon.core":
-            _m.__path__ = []
-        sys.modules[sub] = _m
+
+@pytest.fixture(autouse=True, scope="module")
+def isolated_sys_modules():
+    """Patch pandas/autogluon in sys.modules only for this test module; restored on module teardown."""
+    with mock.patch.dict(sys.modules, clear=False) as mocked_modules:
+        # Provide fresh mocks so that test-local mutations don't persist globally
+        mocked_modules["pandas"] = mock.MagicMock()
+        _ag = mock.MagicMock()
+        _ag.__path__ = []
+        _ag.__spec__ = None
+        mocked_modules["autogluon"] = _ag
+        for sub in ("autogluon.tabular", "autogluon.core", "autogluon.core.metrics"):
+            _m = mock.MagicMock()
+            _m.__spec__ = None
+            if sub == "autogluon.core":
+                _m.__path__ = []
+            mocked_modules[sub] = _m
+        yield
+
 
 from ..component import autogluon_models_full_refit  # noqa: E402
 
@@ -41,7 +43,7 @@ class TestAutogluonModelsFullRefitUnitTests:
     @mock.patch("pandas.read_csv")
     @mock.patch("autogluon.tabular.TabularPredictor")
     def test_full_refit_with_valid_model(self, mock_predictor_class, mock_read_csv):
-        """Test full refit with a valid model name."""
+        """Test full refit with a valid model name and extra train data."""
         mock_predictor = mock.MagicMock()
         mock_predictor_clone = mock.MagicMock()
         mock_predictor.clone.return_value = mock_predictor_clone
@@ -54,7 +56,8 @@ class TestAutogluonModelsFullRefitUnitTests:
         mock_predictor.label = "target"
 
         mock_dataset_df = mock.MagicMock()
-        mock_read_csv.return_value = mock_dataset_df
+        mock_extra_train_df = mock.MagicMock()
+        mock_read_csv.side_effect = [mock_dataset_df, mock_extra_train_df]
 
         # Create mock artifacts; use temp dir so we can verify metrics files are written
         mock_predictor_artifact = mock.MagicMock()
@@ -81,22 +84,31 @@ class TestAutogluonModelsFullRefitUnitTests:
                 run_id=RUN_ID,
                 sample_row=SAMPLE_ROW,
                 model_artifact=mock_model_artifact,
+                extra_train_data_path="/tmp/extra_train.csv",
             )
 
             assert result.model_name == "LightGBM_BAG_L1_FULL"
             assert mock_model_artifact.metadata["display_name"] == "LightGBM_BAG_L1_FULL"
+            assert mock_model_artifact.metadata["context"]["data_config"] == {
+                "sampling_config": {},
+                "split_config": {},
+            }
             assert mock_model_artifact.metadata["context"]["task_type"] == "regression"
             assert mock_model_artifact.metadata["context"]["label_column"] == mock_predictor.label
             assert mock_model_artifact.metadata["context"]["metrics"]["test_data"] == eval_results
 
-            # Verify read_csv was called with correct path
-            mock_read_csv.assert_called_once_with("/tmp/full_dataset.csv")
+            # Verify read_csv was called with correct paths (test_dataset + extra_train)
+            assert mock_read_csv.call_count == 2
+            assert mock_read_csv.call_args_list[0][0][0] == "/tmp/full_dataset.csv"
+            assert mock_read_csv.call_args_list[1][0][0] == "/tmp/extra_train.csv"
 
             # Verify TabularPredictor.load was called with correct path
             mock_predictor_class.load.assert_called_once_with("/tmp/predictor")
 
-            # Verify refit_full was called with correct parameters (on clone)
-            mock_predictor_clone.refit_full.assert_called_once_with(model="LightGBM_BAG_L1")
+            # Verify refit_full was called with extra train data
+            mock_predictor_clone.refit_full.assert_called_once_with(
+                model="LightGBM_BAG_L1", train_data_extra=mock_extra_train_df
+            )
 
             # Verify evaluate and feature_importance called with full dataset dataframe (on clone)
             mock_predictor_clone.evaluate.assert_called_once_with(mock_dataset_df)
@@ -139,8 +151,85 @@ class TestAutogluonModelsFullRefitUnitTests:
             assert notebook_path.exists()
             notebook = json.loads(notebook_path.read_text())
             assert "cells" in notebook
+            notebook_text = notebook_path.read_text()
+            for placeholder in ("<PIPELINE_NAME>", "<RUN_ID>", "<MODEL_NAME>", "<SAMPLE_ROW>"):
+                assert placeholder not in notebook_text, f"Unreplaced placeholder: {placeholder}"
         finally:
             shutil.rmtree(model_output_dir, ignore_errors=True)
+
+    @mock.patch("pandas.read_csv")
+    @mock.patch("autogluon.tabular.TabularPredictor")
+    def test_full_refit_without_extra_train_data(self, mock_predictor_class, mock_read_csv):
+        """Test full refit with empty extra_train_data_path passes None to refit_full."""
+        mock_predictor = mock.MagicMock()
+        mock_predictor_clone = mock.MagicMock()
+        mock_predictor.clone.return_value = mock_predictor_clone
+        mock_predictor_class.load.return_value = mock_predictor
+        mock_predictor_clone.evaluate.return_value = {"r2": 0.9}
+        mock_predictor_clone.feature_importance.return_value = mock.MagicMock(to_dict=lambda: {"f": 0.1})
+        mock_predictor.problem_type = "regression"
+        mock_predictor.label = "target"
+
+        mock_dataset_df = mock.MagicMock()
+        mock_read_csv.return_value = mock_dataset_df
+
+        mock_full_dataset = mock.MagicMock()
+        mock_full_dataset.path = "/tmp/full_dataset.csv"
+
+        model_output_dir = tempfile.mkdtemp()
+        try:
+            mock_model_artifact = mock.MagicMock()
+            mock_model_artifact.path = model_output_dir
+            mock_model_artifact.metadata = {}
+
+            autogluon_models_full_refit.python_func(
+                model_name="LightGBM_BAG_L1",
+                test_dataset=mock_full_dataset,
+                predictor_path="/tmp/predictor",
+                sampling_config={},
+                split_config={},
+                model_config={},
+                pipeline_name=PIPELINE_NAME,
+                run_id=RUN_ID,
+                sample_row=SAMPLE_ROW,
+                model_artifact=mock_model_artifact,
+                extra_train_data_path="",
+            )
+
+            # Verify refit_full was called with train_data_extra=None
+            mock_predictor_clone.refit_full.assert_called_once_with(model="LightGBM_BAG_L1", train_data_extra=None)
+            # read_csv should only be called once (test_dataset only)
+            mock_read_csv.assert_called_once_with("/tmp/full_dataset.csv")
+        finally:
+            shutil.rmtree(model_output_dir, ignore_errors=True)
+
+    @mock.patch("pandas.read_csv")
+    @mock.patch("autogluon.tabular.TabularPredictor")
+    def test_full_refit_handles_file_not_found_test_dataset(self, mock_predictor_class, mock_read_csv):
+        """Test that FileNotFoundError is raised when test_dataset path doesn't exist."""
+        mock_read_csv.side_effect = FileNotFoundError("Test dataset file not found")
+
+        mock_full_dataset = mock.MagicMock()
+        mock_full_dataset.path = "/nonexistent/full_dataset.csv"
+
+        mock_model_artifact = mock.MagicMock()
+        mock_model_artifact.path = "/tmp/refitted_model"
+        mock_model_artifact.metadata = {}
+
+        with pytest.raises(FileNotFoundError):
+            autogluon_models_full_refit.python_func(
+                model_name="LightGBM_BAG_L1",
+                test_dataset=mock_full_dataset,
+                predictor_path="/tmp/predictor",
+                sampling_config={},
+                split_config={},
+                model_config={},
+                pipeline_name=PIPELINE_NAME,
+                run_id=RUN_ID,
+                sample_row=SAMPLE_ROW,
+                model_artifact=mock_model_artifact,
+                extra_train_data_path="/tmp/extra_train.csv",
+            )
 
     @mock.patch("pandas.read_csv")
     @mock.patch("autogluon.tabular.TabularPredictor")
@@ -172,6 +261,7 @@ class TestAutogluonModelsFullRefitUnitTests:
                 run_id=RUN_ID,
                 sample_row=SAMPLE_ROW,
                 model_artifact=mock_model_artifact,
+                extra_train_data_path="",
             )
 
     @mock.patch("pandas.read_csv")
@@ -207,6 +297,7 @@ class TestAutogluonModelsFullRefitUnitTests:
                 run_id=RUN_ID,
                 sample_row=SAMPLE_ROW,
                 model_artifact=mock_model_artifact,
+                extra_train_data_path="",
             )
 
     @mock.patch("pandas.read_csv")
@@ -222,7 +313,8 @@ class TestAutogluonModelsFullRefitUnitTests:
         mock_predictor.problem_type = "regression"
 
         mock_dataset_df = mock.MagicMock()
-        mock_read_csv.return_value = mock_dataset_df
+        mock_extra_df = mock.MagicMock()
+        mock_read_csv.side_effect = [mock_dataset_df, mock_extra_df]
 
         mock_full_dataset = mock.MagicMock()
         mock_full_dataset.path = "/tmp/full_dataset.csv"
@@ -243,6 +335,7 @@ class TestAutogluonModelsFullRefitUnitTests:
             run_id=RUN_ID,
             sample_row=SAMPLE_ROW,
             model_artifact=mock_model_artifact,
+            extra_train_data_path="/tmp/extra_train.csv",
         )
 
         # Verify call order:
@@ -257,6 +350,8 @@ class TestAutogluonModelsFullRefitUnitTests:
         assert mock_predictor_clone.save_space.called
         assert mock_predictor_clone.refit_full.call_count == 1
         assert mock_predictor.clone.call_count == 1
+        # read_csv called twice (test_dataset + extra_train)
+        assert mock_read_csv.call_count == 2
 
     @mock.patch("autogluon.core.metrics.confusion_matrix")
     @mock.patch("pandas.read_csv")
@@ -276,7 +371,8 @@ class TestAutogluonModelsFullRefitUnitTests:
         mock_predictor.label = "target"
 
         mock_dataset_df = mock.MagicMock()
-        mock_read_csv.return_value = mock_dataset_df
+        mock_extra_df = mock.MagicMock()
+        mock_read_csv.side_effect = [mock_dataset_df, mock_extra_df]
         confusion_matrix_dict = {"0": {"0": 2, "1": 0}, "1": {"0": 1, "1": 0}}
         mock_confusion_matrix.return_value = mock.MagicMock(to_dict=lambda: confusion_matrix_dict)
 
@@ -301,6 +397,12 @@ class TestAutogluonModelsFullRefitUnitTests:
                 run_id=RUN_ID,
                 sample_row=SAMPLE_ROW,
                 model_artifact=mock_model_artifact,
+                extra_train_data_path="/tmp/extra_train.csv",
+            )
+            mock_confusion_matrix.assert_called_once_with(
+                solution=mock_dataset_df["target"],
+                prediction=mock_predictor_clone.predict.return_value,
+                output_format="pandas_dataframe",
             )
 
             metrics_dir = Path(model_output_dir) / "LightGBM_BAG_L1_FULL" / "metrics"
@@ -343,6 +445,7 @@ class TestAutogluonModelsFullRefitUnitTests:
                     run_id=RUN_ID,
                     sample_row=SAMPLE_ROW,
                     model_artifact=mock_model_artifact,
+                    extra_train_data_path="",
                 )
         finally:
             shutil.rmtree(mock_model_artifact.path, ignore_errors=True)

@@ -25,27 +25,32 @@ def autogluon_models_full_refit(
     sampling_config: Optional[dict] = None,
     split_config: Optional[dict] = None,
     model_config: Optional[dict] = None,
+    extra_train_data_path: str = "",
 ) -> NamedTuple("outputs", model_name=str):
     """Refit a specific AutoGluon model on the full training dataset.
 
     This component takes a trained AutoGluon TabularPredictor, loaded from
     predictor_path, and refits a specific model, identified by model_name, on
-    the full training data. By default AutoGluon refit_full uses the
-    predictor's training and validation data; the test_dataset is used for
-    evaluation and for writing metrics. The refitted model is saved with the
-    suffix "_FULL" appended to model_name.
+    the full training data. When extra_train_data_path is provided, the extra
+    training data is loaded and passed to refit_full as train_data_extra. The
+    test_dataset is used for evaluation and for writing metrics. The refitted
+    model is saved with the suffix "_FULL" appended to model_name.
 
     Artifacts are written under model_artifact.path in a directory named
     <model_name>_FULL (e.g. LightGBM_BAG_L1_FULL). The layout is:
 
-    - model_artifact.path / <model_name>_FULL / predictor /
+      - model_artifact.path / <model_name>_FULL / predictor /
       TabularPredictor (predictor.pkl inside); clone with only the refitted model.
-    - model_artifact.path / <model_name>_FULL / metrics / metrics.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / metrics.json
       (evaluation results; leaderboard component reads this via display_name/metrics/metrics.json).
-    - model_artifact.path / <model_name>_FULL / metrics / feature_importance.json
-    - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / feature_importance.json
+
+      - model_artifact.path / <model_name>_FULL / metrics / confusion_matrix.json
       (classification only).
-    - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
+
+      - model_artifact.path / <model_name>_FULL / notebooks / automl_predictor_notebook.ipynb
 
     Artifact metadata: display_name (<model_name>_FULL), context (data_config,
     task_type, label_column, model_config, location, metrics), and
@@ -67,6 +72,7 @@ def autogluon_models_full_refit(
         run_id: Pipeline run ID (used in the generated notebook).
         sample_row: JSON list of row objects for example input in the notebook; label column is stripped.
         model_artifact: Output Model; artifacts under model_artifact.path/<model_name>_FULL (predictor/, metrics/, notebooks/).
+        extra_train_data_path: Optional path to extra training data CSV (on PVC workspace) passed to refit_full.
 
     Returns:
         NamedTuple with model_name (refitted name with "_FULL" suffix); artifacts written to model_artifact.
@@ -111,6 +117,7 @@ def autogluon_models_full_refit(
     model_config = model_config or {}
 
     test_dataset_df = pd.read_csv(test_dataset.path)
+    extra_train_df = pd.read_csv(extra_train_data_path) if extra_train_data_path else None
 
     predictor = TabularPredictor.load(predictor_path)
 
@@ -139,8 +146,8 @@ def autogluon_models_full_refit(
     predictor_clone = predictor.clone(path=output_path / "predictor", return_clone=True, dirs_exist_ok=True)
     predictor_clone.delete_models(models_to_keep=[model_name])
 
-    # by default, autogluon refit on traing + validation data
-    predictor_clone.refit_full(model=model_name)
+    # refit on training + validation data, optionally with extra training data
+    predictor_clone.refit_full(model=model_name, train_data_extra=extra_train_df)
 
     predictor_clone.set_model_best(model=model_name_full, save_trainer=True)
     predictor_clone.save_space()
@@ -163,8 +170,8 @@ def autogluon_models_full_refit(
         from autogluon.core.metrics import confusion_matrix
 
         confusion_matrix_res = confusion_matrix(
-            solution=predictor_clone.predict(test_dataset_df),
-            prediction=test_dataset_df[predictor.label],
+            solution=test_dataset_df[predictor.label],
+            prediction=predictor_clone.predict(test_dataset_df),
             output_format="pandas_dataframe",
         )
         with (output_path / "metrics" / "confusion_matrix.json").open("w") as f:
@@ -173,6 +180,10 @@ def autogluon_models_full_refit(
     # Notebook generation
 
     # TODO: Move to build package in next stages
+    # NOTE: The generated notebook expects that a connection secret is available in the environment where it is run.
+    # This connection should provide the same environment variables as required by the pipeline input secret,
+    # i.e. AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_ENDPOINT, and AWS_DEFAULT_REGION,
+    # plus the variable AWS_S3_BUCKET for S3 bucket access.
 
     REGRESSION = {
         "cells": [
@@ -257,9 +268,9 @@ def autogluon_models_full_refit(
                 "metadata": {},
                 "outputs": [],
                 "source": [
-                    'pipeline_name = "<PIPELINE_NAME>"\n',
-                    'run_id = "<RUN_ID>"\n',
-                    'model_name = "<MODEL_NAME>"',
+                    'pipeline_name = "<REPLACE_PIPELINE_NAME>"\n',
+                    'run_id = "<REPLACE_RUN_ID>"\n',
+                    'model_name = "<REPLACE_MODEL_NAME>"',
                 ],
             },
             {
@@ -413,7 +424,7 @@ def autogluon_models_full_refit(
                 "source": [
                     "import pandas as pd\n",
                     "\n",
-                    "score_data = <SAMPLE_ROW>\n",
+                    "score_data = <REPLACE_SAMPLE_ROW>\n",
                     "score_df = pd.DataFrame(data=score_data)\n",
                     "score_df.head()",
                 ],
@@ -549,9 +560,9 @@ def autogluon_models_full_refit(
                 "metadata": {},
                 "outputs": [],
                 "source": [
-                    'pipeline_name = "<PIPELINE_NAME>"\n',
-                    'run_id =  "<RUN_ID>"\n',
-                    'model_name = "<MODEL_NAME>"',
+                    'pipeline_name = "<REPLACE_PIPELINE_NAME>"\n',
+                    'run_id =  "<REPLACE_RUN_ID>"\n',
+                    'model_name = "<REPLACE_MODEL_NAME>"',
                 ],
             },
             {
@@ -712,7 +723,7 @@ def autogluon_models_full_refit(
                 "source": [
                     "import pandas as pd\n",
                     "\n",
-                    "score_data = <SAMPLE_ROW>\n",
+                    "score_data = <REPLACE_SAMPLE_ROW>\n",
                     "\n",
                     "score_df = pd.DataFrame(data=score_data)\n",
                     "score_df.head()",
@@ -775,24 +786,40 @@ def autogluon_models_full_refit(
         case _:
             raise ValueError(f"Invalid problem type: {problem_type}")
 
+    # Improved retrieve_pipeline_name: trims only the run id or suffix
     def retrieve_pipeline_name(pipeline_name: str) -> str:
-        pipeline_name_elements = pipeline_name.split("-")
-        return "-".join(pipeline_name_elements[:-1])
+        """Attempts to infer the original pipeline name from a name that may have a run id or suffix at the end.
+
+        Removes only the last dash-separated element (the run id or variant),
+        handling trailing dashes gracefully to avoid dropping real name segments.
+        If only a single element exists, returns as is.
+        """
+        if not pipeline_name:
+            return pipeline_name
+        # Strip trailing dashes for robust splitting
+        name = pipeline_name.rstrip("-")
+        if "-" not in name:
+            return name
+        tokens = name.split("-")
+        if len(tokens) <= 1:
+            return tokens[0] if tokens else ""
+        return "-".join(tokens[:-1])
 
     pipeline_name = retrieve_pipeline_name(pipeline_name)
 
-    RUN_ID_INDEX = 6
-    PIPELINE_NAME_INDEX = 6
-    MODEL_NAME_INDEX = 6
-    notebook["cells"][RUN_ID_INDEX]["source"][1] = notebook["cells"][RUN_ID_INDEX]["source"][1].replace(
-        "<RUN_ID>", run_id
-    )
-    notebook["cells"][PIPELINE_NAME_INDEX]["source"][0] = notebook["cells"][PIPELINE_NAME_INDEX]["source"][0].replace(
-        "<PIPELINE_NAME>", pipeline_name
-    )
-    notebook["cells"][MODEL_NAME_INDEX]["source"][2] = notebook["cells"][MODEL_NAME_INDEX]["source"][2].replace(
-        "<MODEL_NAME>", model_name_full
-    )
+    # Replace <REPLACE_RUN_ID>, <REPLACE_PIPELINE_NAME>, <REPLACE_MODEL_NAME>, <REPLACE_SAMPLE_ROW> anywhere in code cells. # noqa: E501
+    def replace_placeholder_in_notebook(notebook, replacements):
+        for cell in notebook.get("cells", []):
+            if cell.get("cell_type") != "code":
+                continue
+            # Replace in every string of the source list
+            new_source = []
+            for line in cell.get("source", []):
+                for placeholder, value in replacements.items():
+                    line = line.replace(placeholder, value)
+                new_source.append(line)
+            cell["source"] = new_source
+        return notebook
 
     sample_row_list = json.loads(sample_row)
 
@@ -801,10 +828,14 @@ def autogluon_models_full_refit(
         {col: value for col, value in row.items() if col != predictor.label} for row in sample_row_list
     ]
 
-    sample_row_idx = 19 + int((problem_type in {"binary", "multiclass"}))
-    notebook["cells"][sample_row_idx]["source"][2] = notebook["cells"][sample_row_idx]["source"][2].replace(
-        "<SAMPLE_ROW>", str(sample_row_formatted)
-    )
+    replacements = {
+        "<REPLACE_RUN_ID>": run_id,
+        "<REPLACE_PIPELINE_NAME>": pipeline_name,
+        "<REPLACE_MODEL_NAME>": model_name_full,
+        "<REPLACE_SAMPLE_ROW>": str(sample_row_formatted),
+    }
+    notebook = replace_placeholder_in_notebook(notebook, replacements)
+
     notebook_path = output_path / "notebooks"
     notebook_path.mkdir(parents=True, exist_ok=True)
     with (notebook_path / "automl_predictor_notebook.ipynb").open("w", encoding="utf-8") as f:
