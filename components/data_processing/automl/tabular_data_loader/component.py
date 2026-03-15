@@ -75,7 +75,7 @@ def automl_data_loader(  # noqa: D417
 
     # Input validation
     VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
-    VALID_TASK_TYPES = ("binary", "multiclass", "regression")
+    VALID_TASK_TYPES = {"binary", "multiclass", "regression"}
     errors = []
 
     if not bucket_name or not isinstance(bucket_name, str) or not bucket_name.strip():
