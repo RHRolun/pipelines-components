@@ -74,7 +74,7 @@ def automl_data_loader(  # noqa: D417
     logger = logging.getLogger(__name__)
 
     # Input validation
-    VALID_SAMPLING_METHODS = ("first_n_rows", "stratified", "random")
+    VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
     VALID_TASK_TYPES = ("binary", "multiclass", "regression")
     errors = []
 
