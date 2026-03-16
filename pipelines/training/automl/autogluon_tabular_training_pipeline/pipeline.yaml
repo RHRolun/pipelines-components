@@ -286,7 +286,7 @@ deploymentSpec:
 
           '
           - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\n__KFP_EMBEDDED_ARCHIVE_B64 = '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'\n\
+          \ *\n\n__KFP_EMBEDDED_ARCHIVE_B64 = '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'\n\
           \nimport base64 as __kfp_b64\nimport io as __kfp_io\nimport os as __kfp_os\n\
           import sys as __kfp_sys\nimport tarfile as __kfp_tarfile\nimport tempfile\
           \ as __kfp_tempfile\n\n# Extract embedded archive at import time to ensure\
@@ -720,41 +720,71 @@ deploymentSpec:
           model-evaluation-pipeline\")\n        def evaluation_pipeline(trained_models):\n\
           \            leaderboard = leaderboard_evaluation(\n                models=trained_models,\n\
           \                eval_metric=\"root_mean_squared_error\",\n            )\n\
-          \            return leaderboard\n    \"\"\"  # noqa: E501\n    import json\n\
-          \    from pathlib import Path\n\n    import pandas as pd\n\n    # Modified\
-          \ theme colors for a lighter look. Only :root CSS vars are changed.\n  \
-          \  def _build_leaderboard_html(table_html: str, eval_metric: str, best_model_name:\
-          \ str, num_models: int) -> str:\n        \"\"\"Build a styled HTML document\
-          \ for the leaderboard (lighter theme).\"\"\"\n        return f\"\"\"<!DOCTYPE\
-          \ html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta\
-          \ name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n \
-          \ <title>AutoML Leaderboard</title>\n  <style>\n    :root {{\n      --bg:\
-          \ #f7fafc;\n      --surface: #ffffff;\n      --surface-hover: #f1f5f9;\n\
-          \      --border: #dde3eb;\n      --text: #23282e;\n      --text-muted: #5c6975;\n\
-          \      --accent: #2977ff;\n      --radius: 12px;\n      --font: 'Segoe UI',\
-          \ system-ui, -apple-system, sans-serif;\n    }}\n    * {{\n      box-sizing:\
-          \ border-box;\n    }}\n    body {{\n      margin: 0;\n      padding: 2rem;\n\
-          \      font-family: var(--font);\n      background: var(--bg);\n      color:\
-          \ var(--text);\n      line-height: 1.5;\n      min-height: 100vh;\n    }}\n\
-          \    .container {{\n      max-width: 960px;\n      margin: 0 auto;\n   \
+          \            return leaderboard\n    \"\"\"  # noqa: E501\n    import html\
+          \ as html_module\n    import json\n    from pathlib import Path\n\n    import\
+          \ pandas as pd\n\n    def _build_leaderboard_table(df: pd.DataFrame) ->\
+          \ str:\n        \"\"\"Build table HTML with Notebook and Predictor as separate\
+          \ columns (raw URI as link text).\"\"\"\n        display_cols = [c for c\
+          \ in df.columns if c not in (\"notebook\", \"predictor\")]\n        rows\
+          \ = []\n        rows.append(\n            \"<thead><tr>\"\n            +\
+          \ \"\".join(f\"<th>{html_module.escape(str(c))}</th>\" for c in [df.index.name\
+          \ or \"rank\"] + display_cols)\n            + \"<th>Notebook</th><th>Predictor</th></tr></thead><tbody>\"\
+          \n        )\n        for idx, row in df.iterrows():\n            cells =\
+          \ [f\"<td>{html_module.escape(str(idx))}</td>\"]\n            for col in\
+          \ display_cols:\n                val = row[col]\n                cells.append(f\"\
+          <td>{html_module.escape(str(val))}</td>\")\n            notebook_uri = html_module.escape(str(row[\"\
+          notebook\"]))\n            predictor_uri = html_module.escape(str(row[\"\
+          predictor\"]))\n            cells.append(\n                f'<td class=\"\
+          uri-cell\">'\n                f'<a href=\"{notebook_uri}\" class=\"uri-link\"\
+          \ data-uri=\"{notebook_uri}\" target=\"_blank\" rel=\"noopener\">URI</a>'\
+          \  # noqa: E501\n                f'<div class=\"uri-popover\" role=\"dialog\"\
+          \ aria-label=\"URI\" hidden>'\n                f'<pre class=\"uri-popover-text\"\
+          ></pre>'\n                f'<button type=\"button\" class=\"uri-popover-close\"\
+          \ aria-label=\"Close\">\xD7</button>'\n                f\"</div></td>\"\n\
+          \            )\n            cells.append(\n                f'<td class=\"\
+          uri-cell\">'\n                f'<a href=\"{predictor_uri}\" class=\"uri-link\"\
+          \ data-uri=\"{predictor_uri}\" target=\"_blank\" rel=\"noopener\">URI</a>'\
+          \  # noqa: E501\n                f'<div class=\"uri-popover\" role=\"dialog\"\
+          \ aria-label=\"URI\" hidden>'\n                f'<pre class=\"uri-popover-text\"\
+          ></pre>'\n                f'<button type=\"button\" class=\"uri-popover-close\"\
+          \ aria-label=\"Close\">\xD7</button>'\n                f\"</div></td>\"\n\
+          \            )\n            rows.append(\"<tr>\" + \"\".join(cells) + \"\
+          </tr>\")\n        return \"<table>\" + \"\".join(rows) + \"</tbody></table>\"\
+          \n\n    # Modified theme colors for a lighter look. Only :root CSS vars\
+          \ are changed.\n    def _build_leaderboard_html(table_html: str, eval_metric:\
+          \ str, best_model_name: str, num_models: int) -> str:\n        \"\"\"Build\
+          \ a styled HTML document for the leaderboard (lighter theme).\"\"\"\n  \
+          \      return f\"\"\"<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta\
+          \ charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width,\
+          \ initial-scale=1\">\n  <title>AutoML Leaderboard</title>\n  <style>\n \
+          \   :root {{\n      --bg: #f7fafc;\n      --surface: #ffffff;\n      --surface-hover:\
+          \ #f1f5f9;\n      --border: #dde3eb;\n      --text: #23282e;\n      --text-muted:\
+          \ #5c6975;\n      --accent: #2977ff;\n      --radius: 12px;\n      --font:\
+          \ 'Segoe UI', system-ui, -apple-system, sans-serif;\n    }}\n    * {{\n\
+          \      box-sizing: border-box;\n    }}\n    body {{\n      margin: 0;\n\
+          \      padding: 2rem;\n      font-family: var(--font);\n      background:\
+          \ var(--bg);\n      color: var(--text);\n      line-height: 1.5;\n     \
+          \ min-height: 100vh;\n    }}\n    .container {{\n      max-width: 100%;\n\
+          \      width: 100%;\n      margin: 0 auto;\n      padding: 0 1rem;\n   \
           \ }}\n    header {{\n      margin-bottom: 2rem;\n      padding-bottom: 1.5rem;\n\
-          \      border-bottom: 1px solid var(--border);\n      text-align: center;\n\
+          \      border-bottom: 1px solid var(--border);\n      text-align: left;\n\
           \    }}\n    h1 {{\n      margin: 0 0 0.25rem 0;\n      font-size: 1.75rem;\n\
           \      font-weight: 600;\n    }}\n    h2 {{\n      margin: 0 0 0.5rem 0;\n\
           \      font-size: 1.15rem;\n      font-weight: 400;\n      color: var(--text-muted);\n\
           \    }}\n    .table-scroll {{\n      overflow-x: auto;\n      overflow-y:\
-          \ visible;\n      width: 100%;\n      max-width: 100%;\n      -webkit-overflow-scrolling:\
-          \ touch;\n      margin-bottom: 2rem;\n      border-radius: var(--radius);\n\
-          \      box-shadow: 0 4px 14px 0 #e6eaf1;\n    }}\n    .table-scroll::-webkit-scrollbar\
-          \ {{\n      height: 8px;\n    }}\n    .table-scroll::-webkit-scrollbar-track\
-          \ {{\n      background: var(--surface-hover);\n      border-radius: 4px;\n\
-          \    }}\n    .table-scroll::-webkit-scrollbar-thumb {{\n      background:\
-          \ var(--border);\n      border-radius: 4px;\n    }}\n    .table-scroll::-webkit-scrollbar-thumb:hover\
-          \ {{\n      background: var(--text-muted);\n    }}\n    table {{\n     \
-          \ width: 100%;\n      min-width: max-content;\n      border-collapse: collapse;\n\
-          \      background: var(--surface);\n      overflow: hidden;\n    }}\n  \
-          \  th, td {{\n      padding: 0.75rem 1rem;\n      border-bottom: 1px solid\
-          \ var(--border);\n      text-align: left;\n    }}\n    th {{\n      background:\
+          \ visible;\n      width: 100%;\n      max-width: 100%;\n      min-width:\
+          \ 0;\n      -webkit-overflow-scrolling: touch;\n      margin-bottom: 2rem;\n\
+          \      border-radius: var(--radius);\n      box-shadow: 0 4px 14px 0 #e6eaf1;\n\
+          \    }}\n    .table-scroll::-webkit-scrollbar {{\n      height: 8px;\n \
+          \   }}\n    .table-scroll::-webkit-scrollbar-track {{\n      background:\
+          \ var(--surface-hover);\n      border-radius: 4px;\n    }}\n    .table-scroll::-webkit-scrollbar-thumb\
+          \ {{\n      background: var(--border);\n      border-radius: 4px;\n    }}\n\
+          \    .table-scroll::-webkit-scrollbar-thumb:hover {{\n      background:\
+          \ var(--text-muted);\n    }}\n    table {{\n      width: 100%;\n      max-width:\
+          \ 100%;\n      border-collapse: collapse;\n      background: var(--surface);\n\
+          \      table-layout: auto;\n    }}\n    th, td {{\n      padding: 0.75rem\
+          \ 1rem;\n      border-bottom: 1px solid var(--border);\n      text-align:\
+          \ left;\n      vertical-align: top;\n    }}\n    th {{\n      background:\
           \ var(--surface-hover);\n      color: var(--text-muted);\n      text-transform:\
           \ uppercase;\n      font-size: 0.95rem;\n      letter-spacing: 0.03em;\n\
           \      font-weight: 600;\n      border-bottom: 2px solid var(--border);\n\
@@ -762,44 +792,90 @@ deploymentSpec:
           \   tr:hover {{\n      background: var(--surface-hover);\n      transition:\
           \ background 0.08s;\n    }}\n    .caption {{\n      color: var(--text-muted);\n\
           \      font-size: 0.96em;\n      margin-top: -0.8em;\n      margin-bottom:\
-          \ 2em;\n    }}\n    a {{\n      color: var(--accent);\n    }}\n    a:hover\
-          \ {{\n      text-decoration: underline;\n    }}\n    .table-wrapper {{\n\
-          \      display: flex;\n      justify-content: center;\n      width: 100%;\n\
-          \      max-width: 100%;\n    }}\n    .table-wrapper .table-scroll {{\n \
-          \     flex: 1 1 auto;\n      min-width: 0;\n    }}\n  </style>\n</head>\n\
-          <body>\n  <div class=\"container\">\n    <header>\n      <h1>AutoML Model\
-          \ Leaderboard</h1>\n      <h2>Ranking top {num_models} models by <b>{eval_metric}</b></h2>\n\
-          \      <div class=\"caption\">\n        <span>Best model: <b>{best_model_name}</b></span>\n\
-          \      </div>\n    </header>\n    <div class=\"table-wrapper\">\n    <div\
-          \ class=\"table-scroll\">\n    {table_html}\n    </div>\n    </div>\n  </div>\n\
-          </body>\n</html>\n\"\"\"\n\n    results = []\n    for model in models:\n\
-          \        metrics_path = Path(model.path) / model.metadata[\"display_name\"\
-          ] / \"metrics\" / \"metrics.json\"\n        with metrics_path.open(\"r\"\
-          ) as f:\n            eval_results = json.load(f)\n        display_name =\
-          \ model.metadata[\"display_name\"]\n        model_uri = f\"{model.uri.rstrip('/')}/{display_name}\"\
+          \ 2em;\n    }}\n    a {{\n      color: var(--accent);\n      text-decoration:\
+          \ none;\n    }}\n    a:hover {{\n      text-decoration: underline;\n   \
+          \ }}\n    .uri-cell {{\n      position: relative;\n      max-width: 20rem;\n\
+          \    }}\n    .uri-cell .uri-link {{\n      font-size: 0.875rem;\n    }}\n\
+          \    .uri-popover {{\n      display: none;\n      position: fixed;\n   \
+          \   min-width: 16rem;\n      max-width: 28rem;\n      padding: 0.75rem;\n\
+          \      background: var(--surface);\n      border: 1px solid var(--border);\n\
+          \      border-radius: 8px;\n      box-shadow: 0 8px 24px rgba(0,0,0,0.12);\n\
+          \      z-index: 9999;\n    }}\n    .uri-popover:not([hidden]) {{\n     \
+          \ display: block;\n    }}\n    .uri-popover-text {{\n      margin: 0 0 0.5rem\
+          \ 0;\n      padding: 0.5rem;\n      font-size: 0.8rem;\n      word-break:\
+          \ break-all;\n      overflow-wrap: break-word;\n      background: var(--surface-hover);\n\
+          \      border-radius: 4px;\n      white-space: pre-wrap;\n      max-height:\
+          \ 8rem;\n      overflow-y: auto;\n    }}\n    .uri-popover-close {{\n  \
+          \    position: absolute;\n      top: 0.5rem;\n      right: 0.5rem;\n   \
+          \   background: none;\n      border: none;\n      font-size: 1.25rem;\n\
+          \      line-height: 1;\n      cursor: pointer;\n      color: var(--text-muted);\n\
+          \    }}\n    .uri-popover-close:hover {{\n      color: var(--text);\n  \
+          \  }}\n    .main-content {{\n      width: 100%;\n      max-width: 75%;\n\
+          \      margin-left: auto;\n      margin-right: auto;\n    }}\n    .table-wrapper\
+          \ {{\n      display: flex;\n      justify-content: center;\n      width:\
+          \ 100%;\n    }}\n    .table-wrapper .table-scroll {{\n      flex: 1 1 auto;\n\
+          \      min-width: 0;\n    }}\n  </style>\n</head>\n<body>\n  <div class=\"\
+          container\">\n    <div class=\"main-content\">\n      <header>\n       \
+          \ <h1>AutoML Model Leaderboard</h1>\n        <h2>Ranking top {num_models}\
+          \ models by <b>{eval_metric}</b></h2>\n        <div class=\"caption\">\n\
+          \          <span>Best model: <b>{best_model_name}</b></span>\n        </div>\n\
+          \      </header>\n      <div class=\"table-wrapper\">\n      <div class=\"\
+          table-scroll\">\n      {table_html}\n      </div>\n      </div>\n    </div>\n\
+          \  </div>\n  <script>\n    (function() {{\n      function closeAllPopovers()\
+          \ {{\n        document.querySelectorAll('.uri-popover').forEach(function(p)\
+          \ {{ p.hidden = true; }});\n      }}\n      function positionPopover(popover,\
+          \ link) {{\n        var rect = link.getBoundingClientRect();\n        var\
+          \ gap = 8;\n        var popoverRect = popover.getBoundingClientRect();\n\
+          \        var viewH = window.innerHeight;\n        var viewW = window.innerWidth;\n\
+          \        var top = rect.bottom + gap;\n        var left = rect.left;\n \
+          \       if (top + popoverRect.height > viewH - 10) {{\n          top = rect.top\
+          \ - popoverRect.height - gap;\n        }}\n        if (top < 10) top = 10;\n\
+          \        if (left + popoverRect.width > viewW - 10) left = viewW - popoverRect.width\
+          \ - 10;\n        if (left < 10) left = 10;\n        popover.style.top =\
+          \ top + 'px';\n        popover.style.left = left + 'px';\n      }}\n   \
+          \   document.querySelectorAll('.uri-link').forEach(function(link) {{\n \
+          \       link.addEventListener('click', function(e) {{\n          e.preventDefault();\n\
+          \          var uri = this.getAttribute('data-uri');\n          var popover\
+          \ = this.nextElementSibling;\n          if (!uri || !popover || !popover.classList.contains('uri-popover'))\
+          \ return;\n          closeAllPopovers();\n          popover.querySelector('.uri-popover-text').textContent\
+          \ = uri;\n          popover.hidden = false;\n          requestAnimationFrame(function()\
+          \ {{ positionPopover(popover, link); }});\n        }});\n      }});\n  \
+          \    document.querySelectorAll('.uri-popover-close').forEach(function(btn)\
+          \ {{\n        btn.addEventListener('click', function() {{ this.closest('.uri-popover').hidden\
+          \ = true; }});\n      }});\n      document.addEventListener('click', function(e)\
+          \ {{\n        if (!e.target.closest('.uri-cell')) closeAllPopovers();\n\
+          \      }});\n    }})();\n  </script>\n</body>\n</html>\n\"\"\"\n\n    def\
+          \ _round_metrics(metrics: dict, decimals: int = 4) -> dict:\n        \"\"\
+          \"Round numeric values in a metrics dict to the given number of decimals.\"\
+          \"\"\n        return {k: round(v, decimals) if isinstance(v, (int, float))\
+          \ else v for k, v in metrics.items()}\n\n    if not models:\n        raise\
+          \ ValueError(\"At least one model is required\")\n\n    results = []\n \
+          \   for model in models:\n        metrics_path = Path(model.path) / model.metadata[\"\
+          display_name\"] / \"metrics\" / \"metrics.json\"\n        with metrics_path.open(\"\
+          r\") as f:\n            eval_results = json.load(f)\n        display_name\
+          \ = model.metadata[\"display_name\"]\n        model_uri = f\"{model.uri.rstrip('/')}/{display_name}\"\
           \n        predictor_uri = f\"{model_uri}/predictor/predictor.pkl\"\n   \
           \     notebook_uri = f\"{model_uri}/notebooks/automl_predictor_notebook.ipynb\"\
           \n        results.append(\n            {\n                \"model\": display_name,\n\
-          \                **eval_results,\n                \"notebook\": notebook_uri,\n\
-          \                \"predictor\": predictor_uri,\n            }\n        )\n\
-          \n    # Notice: AutoGluon follows the \"higher is better\" strategy for\
-          \ all metrics.\n    # This means that some metrics\u2014like log_loss and\
-          \ root_mean_squared_error\u2014will have their signs FLIPPED and are shown\
-          \ as negative. # noqa: E501\n    # This is to ensure that a higher value\
-          \ always means a better model, so users do not need to know about the metric's\
-          \ normal directionality when interpreting the leaderboard. # noqa: E501\n\
-          \    leaderboard_df = pd.DataFrame(results).sort_values(by=eval_metric,\
+          \                **_round_metrics(eval_results),\n                \"notebook\"\
+          : notebook_uri,\n                \"predictor\": predictor_uri,\n       \
+          \     }\n        )\n\n    # Notice: AutoGluon follows the \"higher is better\"\
+          \ strategy for all metrics.\n    # This means that some metrics\u2014like\
+          \ log_loss and root_mean_squared_error\u2014will have their signs FLIPPED\
+          \ and are shown as negative. # noqa: E501\n    # This is to ensure that\
+          \ a higher value always means a better model, so users do not need to know\
+          \ about the metric's normal directionality when interpreting the leaderboard.\
+          \ # noqa: E501\n    leaderboard_df = pd.DataFrame(results).sort_values(by=eval_metric,\
           \ ascending=False)\n    n = len(leaderboard_df)\n    leaderboard_df.index\
           \ = pd.RangeIndex(start=1, stop=n + 1, name=\"rank\")\n\n    html_table\
-          \ = leaderboard_df.to_html(classes=None, border=0, escape=True)\n\n    best_model_name\
-          \ = leaderboard_df.iloc[0][\"model\"]\n    html_content = _build_leaderboard_html(\n\
-          \        table_html=html_table,\n        eval_metric=eval_metric,\n    \
-          \    best_model_name=best_model_name,\n        num_models=len(leaderboard_df),\n\
-          \    )\n    with open(html_artifact.path, \"w\", encoding=\"utf-8\") as\
-          \ f:\n        f.write(html_content)\n\n    html_artifact.metadata[\"data\"\
-          ] = leaderboard_df.to_dict()\n    html_artifact.metadata[\"display_name\"\
-          ] = \"automl_leaderboard\"\n    return NamedTuple(\"outputs\", best_model=str)(best_model=best_model_name)\n\
-          \n"
+          \ = _build_leaderboard_table(leaderboard_df)\n\n    best_model_name = leaderboard_df.iloc[0][\"\
+          model\"]\n    html_content = _build_leaderboard_html(\n        table_html=html_table,\n\
+          \        eval_metric=eval_metric,\n        best_model_name=best_model_name,\n\
+          \        num_models=len(leaderboard_df),\n    )\n    with open(html_artifact.path,\
+          \ \"w\", encoding=\"utf-8\") as f:\n        f.write(html_content)\n\n  \
+          \  html_artifact.metadata[\"data\"] = leaderboard_df.to_dict()\n    html_artifact.metadata[\"\
+          display_name\"] = \"automl_leaderboard\"\n    return NamedTuple(\"outputs\"\
+          , best_model=str)(best_model=best_model_name)\n\n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
     exec-models-selection:
       container:

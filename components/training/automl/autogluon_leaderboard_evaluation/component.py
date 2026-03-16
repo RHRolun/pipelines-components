@@ -42,10 +42,46 @@ def leaderboard_evaluation(
             )
             return leaderboard
     """  # noqa: E501
+    import html as html_module
     import json
     from pathlib import Path
 
     import pandas as pd
+
+    def _build_leaderboard_table(df: pd.DataFrame) -> str:
+        """Build table HTML with Notebook and Predictor as separate columns (raw URI as link text)."""
+        display_cols = [c for c in df.columns if c not in ("notebook", "predictor")]
+        rows = []
+        rows.append(
+            "<thead><tr>"
+            + "".join(f"<th>{html_module.escape(str(c))}</th>" for c in [df.index.name or "rank"] + display_cols)
+            + "<th>Notebook</th><th>Predictor</th></tr></thead><tbody>"
+        )
+        for idx, row in df.iterrows():
+            cells = [f"<td>{html_module.escape(str(idx))}</td>"]
+            for col in display_cols:
+                val = row[col]
+                cells.append(f"<td>{html_module.escape(str(val))}</td>")
+            notebook_uri = html_module.escape(str(row["notebook"]))
+            predictor_uri = html_module.escape(str(row["predictor"]))
+            cells.append(
+                f'<td class="uri-cell">'
+                f'<a href="{notebook_uri}" class="uri-link" data-uri="{notebook_uri}" target="_blank" rel="noopener">URI</a>'  # noqa: E501
+                f'<div class="uri-popover" role="dialog" aria-label="URI" hidden>'
+                f'<pre class="uri-popover-text"></pre>'
+                f'<button type="button" class="uri-popover-close" aria-label="Close">×</button>'
+                f"</div></td>"
+            )
+            cells.append(
+                f'<td class="uri-cell">'
+                f'<a href="{predictor_uri}" class="uri-link" data-uri="{predictor_uri}" target="_blank" rel="noopener">URI</a>'  # noqa: E501
+                f'<div class="uri-popover" role="dialog" aria-label="URI" hidden>'
+                f'<pre class="uri-popover-text"></pre>'
+                f'<button type="button" class="uri-popover-close" aria-label="Close">×</button>'
+                f"</div></td>"
+            )
+            rows.append("<tr>" + "".join(cells) + "</tr>")
+        return "<table>" + "".join(rows) + "</tbody></table>"
 
     # Modified theme colors for a lighter look. Only :root CSS vars are changed.
     def _build_leaderboard_html(table_html: str, eval_metric: str, best_model_name: str, num_models: int) -> str:
@@ -81,14 +117,16 @@ def leaderboard_evaluation(
       min-height: 100vh;
     }}
     .container {{
-      max-width: 960px;
+      max-width: 100%;
+      width: 100%;
       margin: 0 auto;
+      padding: 0 1rem;
     }}
     header {{
       margin-bottom: 2rem;
       padding-bottom: 1.5rem;
       border-bottom: 1px solid var(--border);
-      text-align: center;
+      text-align: left;
     }}
     h1 {{
       margin: 0 0 0.25rem 0;
@@ -106,6 +144,7 @@ def leaderboard_evaluation(
       overflow-y: visible;
       width: 100%;
       max-width: 100%;
+      min-width: 0;
       -webkit-overflow-scrolling: touch;
       margin-bottom: 2rem;
       border-radius: var(--radius);
@@ -127,15 +166,16 @@ def leaderboard_evaluation(
     }}
     table {{
       width: 100%;
-      min-width: max-content;
+      max-width: 100%;
       border-collapse: collapse;
       background: var(--surface);
-      overflow: hidden;
+      table-layout: auto;
     }}
     th, td {{
       padding: 0.75rem 1rem;
       border-bottom: 1px solid var(--border);
       text-align: left;
+      vertical-align: top;
     }}
     th {{
       background: var(--surface-hover);
@@ -161,15 +201,69 @@ def leaderboard_evaluation(
     }}
     a {{
       color: var(--accent);
+      text-decoration: none;
     }}
     a:hover {{
       text-decoration: underline;
+    }}
+    .uri-cell {{
+      position: relative;
+      max-width: 20rem;
+    }}
+    .uri-cell .uri-link {{
+      font-size: 0.875rem;
+    }}
+    .uri-popover {{
+      display: none;
+      position: fixed;
+      min-width: 16rem;
+      max-width: 28rem;
+      padding: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      z-index: 9999;
+    }}
+    .uri-popover:not([hidden]) {{
+      display: block;
+    }}
+    .uri-popover-text {{
+      margin: 0 0 0.5rem 0;
+      padding: 0.5rem;
+      font-size: 0.8rem;
+      word-break: break-all;
+      overflow-wrap: break-word;
+      background: var(--surface-hover);
+      border-radius: 4px;
+      white-space: pre-wrap;
+      max-height: 8rem;
+      overflow-y: auto;
+    }}
+    .uri-popover-close {{
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--text-muted);
+    }}
+    .uri-popover-close:hover {{
+      color: var(--text);
+    }}
+    .main-content {{
+      width: 100%;
+      max-width: 75%;
+      margin-left: auto;
+      margin-right: auto;
     }}
     .table-wrapper {{
       display: flex;
       justify-content: center;
       width: 100%;
-      max-width: 100%;
     }}
     .table-wrapper .table-scroll {{
       flex: 1 1 auto;
@@ -179,22 +273,73 @@ def leaderboard_evaluation(
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>AutoML Model Leaderboard</h1>
-      <h2>Ranking top {num_models} models by <b>{eval_metric}</b></h2>
-      <div class="caption">
-        <span>Best model: <b>{best_model_name}</b></span>
+    <div class="main-content">
+      <header>
+        <h1>AutoML Model Leaderboard</h1>
+        <h2>Ranking top {num_models} models by <b>{eval_metric}</b></h2>
+        <div class="caption">
+          <span>Best model: <b>{best_model_name}</b></span>
+        </div>
+      </header>
+      <div class="table-wrapper">
+      <div class="table-scroll">
+      {table_html}
       </div>
-    </header>
-    <div class="table-wrapper">
-    <div class="table-scroll">
-    {table_html}
-    </div>
+      </div>
     </div>
   </div>
+  <script>
+    (function() {{
+      function closeAllPopovers() {{
+        document.querySelectorAll('.uri-popover').forEach(function(p) {{ p.hidden = true; }});
+      }}
+      function positionPopover(popover, link) {{
+        var rect = link.getBoundingClientRect();
+        var gap = 8;
+        var popoverRect = popover.getBoundingClientRect();
+        var viewH = window.innerHeight;
+        var viewW = window.innerWidth;
+        var top = rect.bottom + gap;
+        var left = rect.left;
+        if (top + popoverRect.height > viewH - 10) {{
+          top = rect.top - popoverRect.height - gap;
+        }}
+        if (top < 10) top = 10;
+        if (left + popoverRect.width > viewW - 10) left = viewW - popoverRect.width - 10;
+        if (left < 10) left = 10;
+        popover.style.top = top + 'px';
+        popover.style.left = left + 'px';
+      }}
+      document.querySelectorAll('.uri-link').forEach(function(link) {{
+        link.addEventListener('click', function(e) {{
+          e.preventDefault();
+          var uri = this.getAttribute('data-uri');
+          var popover = this.nextElementSibling;
+          if (!uri || !popover || !popover.classList.contains('uri-popover')) return;
+          closeAllPopovers();
+          popover.querySelector('.uri-popover-text').textContent = uri;
+          popover.hidden = false;
+          requestAnimationFrame(function() {{ positionPopover(popover, link); }});
+        }});
+      }});
+      document.querySelectorAll('.uri-popover-close').forEach(function(btn) {{
+        btn.addEventListener('click', function() {{ this.closest('.uri-popover').hidden = true; }});
+      }});
+      document.addEventListener('click', function(e) {{
+        if (!e.target.closest('.uri-cell')) closeAllPopovers();
+      }});
+    }})();
+  </script>
 </body>
 </html>
 """
+
+    def _round_metrics(metrics: dict, decimals: int = 4) -> dict:
+        """Round numeric values in a metrics dict to the given number of decimals."""
+        return {k: round(v, decimals) if isinstance(v, (int, float)) else v for k, v in metrics.items()}
+
+    if not models:
+        raise ValueError("At least one model is required")
 
     results = []
     for model in models:
@@ -208,7 +353,7 @@ def leaderboard_evaluation(
         results.append(
             {
                 "model": display_name,
-                **eval_results,
+                **_round_metrics(eval_results),
                 "notebook": notebook_uri,
                 "predictor": predictor_uri,
             }
@@ -221,7 +366,7 @@ def leaderboard_evaluation(
     n = len(leaderboard_df)
     leaderboard_df.index = pd.RangeIndex(start=1, stop=n + 1, name="rank")
 
-    html_table = leaderboard_df.to_html(classes=None, border=0, escape=True)
+    html_table = _build_leaderboard_table(leaderboard_df)
 
     best_model_name = leaderboard_df.iloc[0]["model"]
     html_content = _build_leaderboard_html(
