@@ -136,14 +136,6 @@ def autogluon_models_full_refit(
     if model_config is not None and not isinstance(model_config, dict):
         raise TypeError("model_config must be a dictionary or None.")
 
-    if sample_row:
-        try:
-            parsed = json.loads(sample_row)
-            if not isinstance(parsed, list):
-                raise ValueError("sample_row must be a JSON array (list of row objects).")
-        except (json.JSONDecodeError, TypeError):
-            raise TypeError("sample_row must be valid JSON (array of row objects).")
-
     sampling_config = sampling_config or {}
     split_config = split_config or {}
     model_config = model_config or {}
@@ -265,7 +257,12 @@ def autogluon_models_full_refit(
             cell["source"] = new_source
         return notebook
 
-    sample_row_list = json.loads(sample_row)
+    try:
+        sample_row_list = json.loads(sample_row)
+        if not isinstance(sample_row_list, list):
+            raise ValueError("sample_row must be a JSON array (list of row objects).")
+    except (json.JSONDecodeError, TypeError) as e:
+        raise TypeError("sample_row must be valid JSON (array of row objects).") from e
 
     # remove label column from sample row
     sample_row_formatted = [
