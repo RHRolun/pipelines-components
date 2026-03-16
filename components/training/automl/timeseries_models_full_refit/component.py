@@ -64,11 +64,12 @@ def timeseries_models_full_refit(
     # Load the predictor from selection phase
     logger.info(f"Loading predictor from {predictor_path}")
     try:
-        predictor = TimeSeriesPredictor.load(predictor_path)
+        original_predictor = TimeSeriesPredictor.load(predictor_path)
         logger.info(f"Predictor loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load predictor: {str(e)}")
         raise ValueError(f"Could not load predictor from {predictor_path}: {str(e)}")
+
 
     # Load extra training data
     extra_train_df = pd.read_csv(extra_train_data_path)
@@ -91,7 +92,13 @@ def timeseries_models_full_refit(
         timestamp_column=timestamp_column,
     )
 
+
+    # clone the predictor to the output artifact path and delete unnecessary models
+    predictor = original_predictor.clone(path=output_path / "predictor", return_clone=True, dirs_exist_ok=True)
+    predictor.delete_models(models_to_keep=[model_name])
+
     # MOCK: Skip actual refitting (commented out for demonstration)
+    # TODO: Add fit here
     logger.info(f"Skipping refit for {model_name} (mocked implementation)")
 
     # Evaluate the model using predictor.evaluate
@@ -114,7 +121,8 @@ def timeseries_models_full_refit(
     logger.info(f"Saving predictor to {predictor_output}")
     try:
         # Save the predictor to the output path
-        predictor.save(str(predictor_output))
+        predictor.set_model_best(model=model_name_full, save_trainer=True)
+        predictor.save_space()
         logger.info(f"Predictor saved successfully to {predictor_output}")
     except Exception as e:
         logger.error(f"Failed to save predictor: {str(e)}")

@@ -459,9 +459,10 @@ deploymentSpec:
         - -c
         - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
           \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
-          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.15.2'\
-          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
-          $0\" \"$@\"\n"
+          \ python3 -m pip install --quiet --no-warn-script-location 'autogluon.timeseries==1.5.0'\
+          \ 'pandas==2.2.3'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.15.2' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
         - sh
         - -ec
         - 'program_path=$(mktemp -d)
@@ -473,63 +474,113 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef timeseries_models_full_refit(\n    model_name: str,\n    test_dataset:\
+          \ *\n\n__KFP_EMBEDDED_ARCHIVE_B64 = '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'\n\
+          \nimport base64 as __kfp_b64\nimport io as __kfp_io\nimport os as __kfp_os\n\
+          import sys as __kfp_sys\nimport tarfile as __kfp_tarfile\nimport tempfile\
+          \ as __kfp_tempfile\n\n# Extract embedded archive at import time to ensure\
+          \ sys.path and globals are set\n__kfp_tmpdir = __kfp_tempfile.TemporaryDirectory()\n\
+          __KFP_EMBEDDED_ASSET_DIR = __kfp_tmpdir.name\ntry:\n    __kfp_bytes = __kfp_b64.b64decode(__KFP_EMBEDDED_ARCHIVE_B64.encode('ascii'))\n\
+          \    with __kfp_tarfile.open(fileobj=__kfp_io.BytesIO(__kfp_bytes), mode='r:gz')\
+          \ as __kfp_tar:\n        __kfp_tar.extractall(path=__KFP_EMBEDDED_ASSET_DIR)\n\
+          except Exception as __kfp_e:\n    raise RuntimeError(f'Failed to extract\
+          \ embedded archive: {__kfp_e}')\n\n# Always prepend the extracted directory\
+          \ to sys.path for import resolution\nif __KFP_EMBEDDED_ASSET_DIR not in\
+          \ __kfp_sys.path:\n    __kfp_sys.path.insert(0, __KFP_EMBEDDED_ASSET_DIR)\n\
+          \n\n\n\ndef timeseries_models_full_refit(\n    model_name: str,\n    test_dataset:\
           \ dsl.Input[dsl.Dataset],\n    predictor_path: str,\n    sampling_config:\
           \ dict,\n    split_config: dict,\n    model_config: dict,\n    pipeline_name:\
-          \ str,\n    run_id: str,\n    extra_train_data_path: str,\n    model_artifact:\
-          \ dsl.Output[dsl.Model],\n):\n    \"\"\"Refit a single AutoGluon timeseries\
-          \ model on full training data.\n\n    This component takes a model selected\
-          \ during the selection phase and\n    refits it on the full training dataset\
-          \ (selection + extra train data)\n    for improved performance. The refitted\
-          \ model is optimized and saved\n    for deployment.\n\n    The component\
-          \ uses a simplified/mocked implementation for demonstration.\n\n    Args:\n\
-          \        model_name: Name of the model to refit.\n        test_dataset:\
-          \ Test dataset artifact for evaluation.\n        predictor_path: Path to\
-          \ the predictor from selection phase.\n        sampling_config: Configuration\
-          \ used for data sampling.\n        split_config: Configuration used for\
-          \ data splitting.\n        model_config: Model configuration from selection\
-          \ phase.\n        pipeline_name: Pipeline name for metadata.\n        run_id:\
-          \ Pipeline run ID for metadata.\n        extra_train_data_path: Path to\
-          \ extra training data CSV.\n        model_artifact: Output artifact for\
-          \ the refitted model.\n    \"\"\"\n    import json\n    import logging\n\
-          \    from pathlib import Path\n\n    import pandas as pd\n\n    logger =\
-          \ logging.getLogger(__name__)\n\n    # SIMPLIFIED/MOCKED IMPLEMENTATION\n\
-          \    logger.info(f\"Refitting model: {model_name}\")\n    logger.info(f\"\
+          \ str,\n    run_id: str,\n    extra_train_data_path: str,\n    notebooks:\
+          \ dsl.EmbeddedInput[dsl.Dataset],\n    model_artifact: dsl.Output[dsl.Model],\n\
+          ):\n    \"\"\"Refit a single AutoGluon timeseries model on full training\
+          \ data.\n\n    This component takes a model selected during the selection\
+          \ phase and\n    refits it on the full training dataset (selection + extra\
+          \ train data)\n    for improved performance. The refitted model is optimized\
+          \ and saved\n    for deployment.\n\n    The component uses a simplified/mocked\
+          \ implementation for demonstration.\n\n    Args:\n        model_name: Name\
+          \ of the model to refit.\n        test_dataset: Test dataset artifact for\
+          \ evaluation.\n        predictor_path: Path to the predictor from selection\
+          \ phase.\n        sampling_config: Configuration used for data sampling.\n\
+          \        split_config: Configuration used for data splitting.\n        model_config:\
+          \ Model configuration from selection phase.\n        pipeline_name: Pipeline\
+          \ name for metadata.\n        run_id: Pipeline run ID for metadata.\n  \
+          \      extra_train_data_path: Path to extra training data CSV.\n       \
+          \ model_artifact: Output artifact for the refitted model.\n    \"\"\"\n\
+          \    import json\n    import logging\n    from pathlib import Path\n\n \
+          \   import pandas as pd\n    from autogluon.timeseries import TimeSeriesDataFrame,\
+          \ TimeSeriesPredictor\n\n    logger = logging.getLogger(__name__)\n\n  \
+          \  logger.info(f\"Processing model: {model_name}\")\n    logger.info(f\"\
           Predictor path: {predictor_path}\")\n    logger.info(f\"Extra train data:\
-          \ {extra_train_data_path}\")\n\n    # Load extra training data\n    extra_train_df\
-          \ = pd.read_csv(extra_train_data_path)\n    logger.info(f\"Loaded {len(extra_train_df)}\
+          \ {extra_train_data_path}\")\n\n    # Load the predictor from selection\
+          \ phase\n    logger.info(f\"Loading predictor from {predictor_path}\")\n\
+          \    try:\n        original_predictor = TimeSeriesPredictor.load(predictor_path)\n\
+          \        logger.info(f\"Predictor loaded successfully\")\n    except Exception\
+          \ as e:\n        logger.error(f\"Failed to load predictor: {str(e)}\")\n\
+          \        raise ValueError(f\"Could not load predictor from {predictor_path}:\
+          \ {str(e)}\")\n\n\n    # Load extra training data\n    extra_train_df =\
+          \ pd.read_csv(extra_train_data_path)\n    logger.info(f\"Loaded {len(extra_train_df)}\
           \ extra training rows\")\n\n    # Load test data\n    test_df = pd.read_csv(test_dataset.path)\n\
-          \    logger.info(f\"Loaded {len(test_df)} test rows\")\n\n    # Mock: Simulate\
-          \ refitting on full data\n    logger.info(f\"Refitting {model_name} on full\
-          \ training dataset...\")\n\n    # Mock: Improved performance after refitting\n\
-          \    mock_metrics = {\n        \"MASE\": 0.72,  # Better than selection\
-          \ phase\n        \"MAPE\": 12.5,\n        \"SMAPE\": 11.8,\n        \"MSE\"\
-          : 45.2,\n        \"RMSE\": 6.72,\n    }\n\n    logger.info(f\"Refitting\
-          \ completed. Metrics: {mock_metrics}\")\n\n    # Create model output directory\n\
+          \    logger.info(f\"Loaded {len(test_df)} test rows\")\n\n    # Convert\
+          \ test data to TimeSeriesDataFrame for evaluation\n    id_column = model_config.get(\"\
+          id_column\")\n    timestamp_column = model_config.get(\"timestamp_column\"\
+          )\n\n    logger.info(\n        f\"Converting test data to TimeSeriesDataFrame\
+          \ with id_column={id_column}, timestamp_column={timestamp_column}\"\n  \
+          \  )\n    test_ts = TimeSeriesDataFrame.from_data_frame(\n        test_df,\n\
+          \        id_column=id_column,\n        timestamp_column=timestamp_column,\n\
+          \    )\n\n\n    # clone the predictor to the output artifact path and delete\
+          \ unnecessary models\n    predictor = original_predictor.clone(path=output_path\
+          \ / \"predictor\", return_clone=True, dirs_exist_ok=True)\n    predictor.delete_models(models_to_keep=[model_name])\n\
+          \n    # MOCK: Skip actual refitting (commented out for demonstration)\n\
+          \    # TODO: Add fit here\n    logger.info(f\"Skipping refit for {model_name}\
+          \ (mocked implementation)\")\n\n    # Evaluate the model using predictor.evaluate\n\
+          \    logger.info(f\"Evaluating model {model_name} on test data...\")\n \
+          \   try:\n        metrics = predictor.evaluate(test_ts)\n        logger.info(f\"\
+          Evaluation completed. Metrics: {metrics}\")\n    except Exception as e:\n\
+          \        logger.error(f\"Evaluation failed: {str(e)}\")\n        raise ValueError(f\"\
+          Failed to evaluate model: {str(e)}\")\n\n    # Create model output directory\n\
           \    model_name_full = f\"{model_name}_FULL\"\n    output_path = Path(model_artifact.path)\
           \ / model_name_full\n    output_path.mkdir(parents=True, exist_ok=True)\n\
-          \n    # Save mock predictor\n    predictor_output = output_path / \"predictor\"\
-          \n    predictor_output.mkdir(parents=True, exist_ok=True)\n\n    predictor_metadata\
+          \n    # Save the predictor with the selected model\n    predictor_output\
+          \ = output_path / \"predictor\"\n\n    logger.info(f\"Saving predictor to\
+          \ {predictor_output}\")\n    try:\n        # Save the predictor to the output\
+          \ path\n        predictor.set_model_best(model=model_name_full, save_trainer=True)\n\
+          \        predictor.save_space()\n        logger.info(f\"Predictor saved\
+          \ successfully to {predictor_output}\")\n    except Exception as e:\n  \
+          \      logger.error(f\"Failed to save predictor: {str(e)}\")\n        raise\
+          \ ValueError(f\"Could not save predictor to {predictor_output}: {str(e)}\"\
+          )\n\n    # Save additional metadata about the selected model\n    predictor_metadata\
           \ = {\n        \"model_name\": model_name_full,\n        \"base_model\"\
-          : model_name,\n        \"refitted\": True,\n        \"prediction_length\"\
+          : model_name,\n        \"selected_model\": model_name,\n        \"refitted\"\
+          : False,  # Currently using mocked refit\n        \"prediction_length\"\
           : model_config.get(\"prediction_length\", 1),\n        \"eval_metric\":\
           \ model_config.get(\"eval_metric\", \"MASE\"),\n        \"target\": model_config.get(\"\
-          target\"),\n    }\n\n    with open(predictor_output / \"predictor_metadata.json\"\
-          , \"w\") as f:\n        json.dump(predictor_metadata, f, indent=2)\n\n \
-          \   logger.info(f\"Saved predictor to {predictor_output}\")\n\n    # Save\
-          \ metrics\n    metrics_path = output_path / \"metrics\"\n    metrics_path.mkdir(parents=True,\
-          \ exist_ok=True)\n\n    with open(metrics_path / \"metrics.json\", \"w\"\
-          ) as f:\n        json.dump(mock_metrics, f, indent=2)\n\n    logger.info(f\"\
-          Saved metrics to {metrics_path}\")\n\n    # Set artifact metadata\n    model_artifact.metadata[\"\
-          display_name\"] = model_name_full\n    model_artifact.metadata[\"context\"\
-          ] = {\n        \"model_config\": model_config,\n        \"sampling_config\"\
-          : sampling_config,\n        \"split_config\": split_config,\n        \"\
-          metrics\": {\"test_data\": mock_metrics},\n        \"location\": {\n   \
-          \         \"model_directory\": model_name_full,\n            \"predictor\"\
-          : f\"{model_name_full}/predictor\",\n            \"metrics\": f\"{model_name_full}/metrics\"\
-          ,\n        },\n        \"pipeline_info\": {\n            \"pipeline_name\"\
-          : pipeline_name,\n            \"run_id\": run_id,\n        },\n    }\n\n\
-          \    logger.info(f\"Model artifact created: {model_name_full}\")\n\n"
+          target\"),\n        \"id_column\": model_config.get(\"id_column\"),\n  \
+          \      \"timestamp_column\": model_config.get(\"timestamp_column\"),\n \
+          \   }\n\n    with open(predictor_output / \"predictor_metadata.json\", \"\
+          w\") as f:\n        json.dump(predictor_metadata, f, indent=2)\n\n    logger.info(f\"\
+          Saved predictor metadata to {predictor_output / 'predictor_metadata.json'}\"\
+          )\n\n    # Save metrics\n    metrics_path = output_path / \"metrics\"\n\
+          \    metrics_path.mkdir(parents=True, exist_ok=True)\n\n    # Convert metrics\
+          \ to JSON-serializable format\n    metrics_dict = {k: float(v) if hasattr(v,\
+          \ \"item\") else v for k, v in metrics.items()}\n\n    with open(metrics_path\
+          \ / \"metrics.json\", \"w\") as f:\n        json.dump(metrics_dict, f, indent=2)\n\
+          \n    logger.info(f\"Saved metrics to {metrics_path}\")\n\n    # Notebook\
+          \ generation\n\n    notebook_file = \"timeseries_notebook.ipynb\"\n\n  \
+          \  import os\n\n    with open(os.path.join(notebooks.path, notebook_file),\
+          \ \"r\", encoding=\"utf-8\") as f:\n        notebook = json.load(f)\n  \
+          \  notebook_path = output_path / \"notebooks\"\n    notebook_path.mkdir(parents=True,\
+          \ exist_ok=True)\n    with (notebook_path / \"automl_predictor_notebook.ipynb\"\
+          ).open(\"w\", encoding=\"utf-8\") as f:\n        json.dump(notebook, f)\n\
+          \n    # Set artifact metadata\n    model_artifact.metadata[\"display_name\"\
+          ] = model_name_full\n    model_artifact.metadata[\"context\"] = {\n    \
+          \    \"model_config\": model_config,\n        \"sampling_config\": sampling_config,\n\
+          \        \"split_config\": split_config,\n        \"metrics\": {\"test_data\"\
+          : metrics_dict},\n        \"location\": {\n            \"model_directory\"\
+          : model_name_full,\n            \"predictor\": f\"{model_name_full}/predictor\"\
+          ,\n            \"metrics\": f\"{model_name_full}/metrics\",\n          \
+          \  \"notebooks\": f\"{model_name_full}/notebooks\",\n        },\n      \
+          \  \"pipeline_info\": {\n            \"pipeline_name\": pipeline_name,\n\
+          \            \"run_id\": run_id,\n        },\n    }\n\n    logger.info(f\"\
+          Model artifact created: {model_name_full}\")\n\n"
         image: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:f9844dc150592a9f196283b3645dda92bd80dfdb3d467fa8725b10267ea5bdbc
     exec-timeseries-models-selection:
       container:
@@ -585,9 +636,10 @@ deploymentSpec:
           \ \"\"\"\n    import logging\n    from pathlib import Path\n\n    import\
           \ pandas as pd\n    from autogluon.timeseries import TimeSeriesDataFrame,\
           \ TimeSeriesPredictor\n\n    logger = logging.getLogger(__name__)\n\n  \
-          \  # Set constants\n    DEFAULT_PRESETS = \"medium_quality\"\n    DEFAULT_EVAL_METRIC\
-          \ = \"MASE\"\n    DEFAULT_TIME_LIMIT = 60 * 60  # 60 * 60 = 3600 seconds\
-          \ = 1 hour\n\n    # Load training data\n    logger.info(\"Loading training\
+          \  # Set constants\n    DEFAULT_PRESETS = \"fast_training\"  # TODO: for\
+          \ production - change to medium_quality\n    DEFAULT_EVAL_METRIC = \"MASE\"\
+          \n    DEFAULT_TIME_LIMIT = 60  # seconds #TODO: for production - increase\
+          \ the value\n\n    # Load training data\n    logger.info(\"Loading training\
           \ data from %s\", train_data_path)\n    train_df = pd.read_csv(train_data_path)\n\
           \    logger.info(f\"Loaded {len(train_df)} training rows\")\n\n    # Load\
           \ test data\n    logger.info(\"Loading test data from %s\", test_data.path)\n\
@@ -622,8 +674,8 @@ deploymentSpec:
           \ {str(e)}\")\n\n    # Select top N models from leaderboard\n    top_models\
           \ = leaderboard.head(top_n)[\"model\"].values.tolist()\n    logger.info(f\"\
           Top {top_n} models selected from leaderboard: {top_models}\")\n    logger.info(f\"\
-          Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0][\"score_test\"\
-          ]}\")\n\n    # Create model config\n    model_config = {\n        \"prediction_length\"\
+          Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0]['score_test']}\"\
+          )\n\n    # Create model config\n    model_config = {\n        \"prediction_length\"\
           : prediction_length,\n        \"eval_metric\": eval_metric,\n        \"\
           target\": target,\n        \"id_column\": id_column,\n        \"timestamp_column\"\
           : timestamp_column,\n        \"presets\": DEFAULT_PRESETS,\n        \"time_limit\"\
