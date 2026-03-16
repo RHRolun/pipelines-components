@@ -142,6 +142,9 @@ testpaths = ["scripts"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "functional: marks test as functional/e2e (requires RHOAI cluster and .env config)",
+]
 # Don't search these directories
 norecursedirs = [
     ".git",
