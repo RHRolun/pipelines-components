@@ -44,6 +44,7 @@ exploration, then the best candidates are refitted on the full dataset for optim
 | `run_id` | `str` | `None` | Pipeline run ID (used in the generated notebook). |
 | `sample_row` | `str` | `None` | JSON list of row objects for example input in the notebook; label column is stripped. |
 | `model_artifact` | `dsl.Output[dsl.Model]` | `None` | Output Model; artifacts under model_artifact.path/<model_name>_FULL (predictor/, metrics/, notebooks/). |
+| `notebooks` | `dsl.EmbeddedInput[dsl.Dataset]` | `None` | Embedded notebook templates (injected by the runtime from the component's embedded_artifact_path). |
 | `sampling_config` | `Optional[dict]` | `None` | Data sampling config (stored in artifact metadata). |
 | `split_config` | `Optional[dict]` | `None` | Data split config (stored in artifact metadata). |
 | `model_config` | `Optional[dict]` | `None` | Model training config (stored in artifact metadata). |
@@ -77,16 +78,16 @@ exploration, then the best candidates are refitted on the full dataset for optim
 <!-- custom-content -->
 ## Usage Examples 💡
 
-### Refit a single model (typical in a ParallelFor)
+### Refit top models in a pipeline (ParallelFor)
 
-Usually used after `models_selection`; refit each top model with the test dataset used for evaluation and extra training data from the split step. Use pipeline placeholders for name and run ID:
+Use after the **models_selection** component: iterate over `top_models` and refit each on the same test dataset used for evaluation. Pass through config and sample row from the data loader and train/test split tasks. Use pipeline placeholders so the generated notebook shows the current run:
 
 ```python
 from kfp import dsl
 from kfp_components.components.training.automl.autogluon_models_full_refit import autogluon_models_full_refit
 
 @dsl.pipeline(name="automl-full-refit-pipeline")
-def my_pipeline(selection_task, split_task, loader_task):
+def my_pipeline(loader_task, split_task, selection_task):
     with dsl.ParallelFor(items=selection_task.outputs["top_models"], parallelism=2) as model_name:
         refit_task = autogluon_models_full_refit(
             model_name=model_name,
@@ -100,19 +101,22 @@ def my_pipeline(selection_task, split_task, loader_task):
             sample_row=split_task.outputs["sample_row"],
             extra_train_data_path=split_task.outputs["extra_train_data_path"],
         )
+    # refit_task.outputs["model_artifact"] and refit_task.outputs["model_name"] per iteration
     return refit_task
 ```
 
-### Refit with explicit config dicts
+### Refit a single model with explicit config (regression)
+
+Use when you have a predictor path and test dataset from earlier steps and want to refit one model by name. Config dicts are stored in artifact metadata for traceability:
 
 ```python
 refit_task = autogluon_models_full_refit(
     model_name="LightGBM_BAG_L1",
-    test_dataset=test_dataset,
-    predictor_path="/workspace/autogluon_predictor",
-    sampling_config={"n_samples": 10000},
+    test_dataset=test_dataset_artifact,
+    predictor_path="/workspace/predictor",
+    sampling_config={"max_size_mb": 1024},
     split_config={"test_size": 0.2, "random_state": 42},
-    model_config={"eval_metric": "r2", "time_limit": 300},
+    model_config={"eval_metric": "root_mean_squared_error", "time_limit": 300},
     pipeline_name="my-automl-pipeline",
     run_id="run-123",
     sample_row='[{"feature1": 1.0, "target": 0.5}]',
