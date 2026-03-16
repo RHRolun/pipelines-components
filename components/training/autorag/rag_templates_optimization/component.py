@@ -108,12 +108,10 @@ def rag_templates_optimization(
     SUPPORTED_OPTIMIZATION_METRICS = frozenset({"faithfulness", "answer_correctness", "context_correctness"})
     SUPPORTED_VS_TYPES = ("ls_milvus", )
 
-    errors = []
-
     def require_non_empty(**fields):
         for name, value in fields.items():
             if not value:
-                errors.append(f"{name} must be a non-empty string.")
+                raise ValueError(f"{name} must be a non-empty string.")
 
     require_non_empty(
         chat_model_url=chat_model_url,
@@ -124,32 +122,34 @@ def rag_templates_optimization(
     )
 
     if llama_stack_vector_database_id and llama_stack_vector_database_id not in SUPPORTED_VS_TYPES:
-        errors.append(
+        raise ValueError(
             f"llama_stack_vector_database_id {llama_stack_vector_database_id} is not supported,"
             f" supported types are {SUPPORTED_VS_TYPES}."
         )
 
     test_data_path, test_data_suffix = test_data_key.rsplit(".", 1)
     if not test_data_path or test_data_suffix != ".json":
-        errors.append("test_data_path must point to a JSON file")
+        raise ValueError("test_data_path must point to a JSON file")
 
     if not isinstance(optimization_settings, dict):
-        errors.append("optimization_settings must be a dictionary.")
+        raise TypeError("optimization_settings must be a dictionary.")
     else:
-        max_rag_patterns = optimization_settings.get("max_number_of_rag_patterns", MAX_NUMBER_OF_RAG_PATTERNS)
+        max_rag_patterns = optimization_settings.get(
+            "max_number_of_rag_patterns",
+            DEFAULT_MAX_NUMBER_OF_RAG_PATTERNS
+        )
+        if not isinstance(max_rag_patterns, int):
+            raise TypeError("optimization_settings.max_number_of_rag_patterns must be an integer.")
         if (
             MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]
             < max_rag_patterns <
             MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]
         ):
-            errors.append(
+            raise ValueError(
                 f"optimization_settings.max_number_of_rag_patterns must be in a range"
                 f"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[0]} to "
                 f"{MAX_NUMBER_OF_RAG_PATTERNS_ALLOWED_RANGE[1]}."
             )
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
 
     class NotebookCell:
         """

@@ -58,45 +58,41 @@ def documents_indexing(
     supported_chunking_methods = ("recursive", )
     supported_chunks_sizes_range = (128, 2048)
 
-    errors = []
-
     if llama_stack_vector_database_id not in supported_vs_types:
-        errors.append(
+        raise ValueError(
             f"llama_stack_vector_database_id {llama_stack_vector_database_id} is not supported,"
             f" supported types are {supported_vs_types}."
         )
 
     if not embedding_model_id:
-        errors.append("embedding_model_id must be a non-empty string.")
+        raise ValueError("embedding_model_id must be a non-empty string.")
 
     if distance_metric not in supported_distance_metrics:
-        errors.append(
+        raise ValueError(
             f"distance metric {distance_metric} is not supported, supported types are {supported_distance_metrics}."
         )
 
     if chunking_method not in supported_chunking_methods:
-        errors.append(f"chunking_method is not supported, supported methods are {supported_chunking_methods}.")
+        raise ValueError(f"chunking_method is not supported, supported methods are {supported_chunking_methods}.")
 
-    if (
-        not isinstance(chunk_size, int)
-        or not (supported_chunks_sizes_range[0] <= chunk_size <= supported_chunks_sizes_range[1])
-    ):
-        errors.append(
-            f"chunk_size must be an integer in the range"
-            f" {supported_chunks_sizes_range[0]} to {supported_chunks_sizes_range[1]}."
-        )
+
+    if not isinstance(chunk_size, int):
+        raise TypeError("chunk_size must be an integer.")
+    else:
+        if not (supported_chunks_sizes_range[0] <= chunk_size <= supported_chunks_sizes_range[1]):
+            raise ValueError(
+                f"chunk_size must be an integer in the range"
+                f" {supported_chunks_sizes_range[0]} to {supported_chunks_sizes_range[1]}."
+            )
 
     if not isinstance(chunk_overlap, (int, float)):
-        errors.append(f"chunk_overlap must be a numerical value.")
+        raise TypeError(f"chunk_overlap must be a numerical value.")
 
     if embedding_params is None:
         embedding_params = {}
     else:
         if not isinstance(embedding_params, dict):
-            errors.append("embedding_params must be a dictionary.")
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
+            raise TypeError("embedding_params must be a dictionary.")
 
     params = LSEmbeddingParams(**embedding_params)
 

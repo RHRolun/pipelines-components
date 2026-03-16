@@ -51,19 +51,14 @@ def documents_discovery(
     if sampling_enabled:
         MAX_SIZE_BYTES = float(sampling_max_size) * 1024**3
 
-    errors = []
-
     if not input_data_bucket_name:
-        errors.append("input_data_bucket_name must be a non-empty string.")
+        raise ValueError("input_data_bucket_name must be a non-empty string.")
 
     if not isinstance(sampling_enabled, bool):
-        errors.append("sampling_enabled must be a boolean value.")
+        raise TypeError("sampling_enabled must be a boolean value.")
 
     if not isinstance(sampling_max_size, (float, int)):
-        errors.append("sampling_max_size must be a numerical value.")
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
+        raise TypeError("sampling_max_size must be a numerical value.")
 
     input_data_path = input_data_path or ""
 

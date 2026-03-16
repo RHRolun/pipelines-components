@@ -101,12 +101,10 @@ def search_space_preparation(
 
     supported_metrics = ["faithfulness", "answer_correctness", "context_correctness"]
 
-    errors = []
-
     def require_non_empty(**fields):
         for name, value in fields.items():
             if not value:
-                errors.append(f"{name} must be a non-empty string.")
+                raise ValueError(f"{name} must be a non-empty string.")
 
     require_non_empty(
         chat_model_url=chat_model_url,
@@ -117,25 +115,22 @@ def search_space_preparation(
 
     if embeddings_models is not None:
         if not isinstance(embeddings_models, list):
-            errors.append("embeddings_models must be a list.")
+            raise TypeError("embeddings_models must be a list.")
         else:
             for i, m in enumerate(embeddings_models):
                 if not m:
-                    errors.append(f"embeddings_models[{i}] must be a non-empty string.")
+                    raise ValueError(f"embeddings_models[{i}] must be a non-empty string.")
 
     if generation_models is not None:
         if not isinstance(generation_models, list):
-            errors.append("generation_models must be a list when provided.")
+            raise TypeError("generation_models must be a list when provided.")
         else:
             for i, m in enumerate(generation_models):
                 if not m:
-                    errors.append(f"generation_models[{i}] must be a non-empty string.")
+                   raise ValueError(f"generation_models[{i}] must be a non-empty string.")
 
     if metric not in supported_metrics:
-        errors.append(f"Metric {metric} is not supported. Supported metrics are {supported_metrics}.")
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
+        raise ValueError(f"Metric {metric} is not supported. Supported metrics are {supported_metrics}.")
 
     if embedding_model_url and chat_model_url:
         # Specification of OpenAI API compatibility
