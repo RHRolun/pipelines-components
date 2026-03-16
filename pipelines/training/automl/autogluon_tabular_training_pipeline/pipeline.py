@@ -1,6 +1,7 @@
 from kfp import dsl
 from kfp_components.components.data_processing.automl.tabular_data_loader import automl_data_loader
 from kfp_components.components.data_processing.automl.tabular_train_test_split import tabular_train_test_split
+from kfp_components.components.deployment.automl.autogluon_model_registry import autogluon_model_registry
 from kfp_components.components.training.automl.autogluon_leaderboard_evaluation import leaderboard_evaluation
 from kfp_components.components.training.automl.autogluon_models_full_refit import autogluon_models_full_refit
 from kfp_components.components.training.automl.autogluon_models_selection import models_selection
@@ -35,7 +36,14 @@ def autogluon_tabular_training_pipeline(
     train_data_file_key: str,
     label_column: str,
     task_type: str,
+    model_registry_url: str,
+    oci_image_ref: str,
+    registered_model_name: str,
+    model_version: str,
+    author: str,
     top_n: int = 3,
+    model_format_name: str = "autogluon",
+    model_format_version: str = "1",
 ):
     """AutoGluon Tabular Training Pipeline.
 
@@ -73,6 +81,11 @@ def autogluon_tabular_training_pipeline(
        metrics and generates an HTML-formatted leaderboard ranking models by their
        performance metrics for comparison and selection.
 
+    6. **Model Registry**: Takes the best model identified by the leaderboard, clones it
+       for deployment using AutoGluon's clone_for_deployment() (stripping training data
+       and ensemble meta-models to produce a minimal inference-ready predictor), packages
+       it as an OCI modelcar image, and registers it in the OpenDataHub Model Registry.
+
     **Two-Stage Training Benefits:**
 
     - **Efficient Exploration:** Initial model training uses the split training data
@@ -108,10 +121,18 @@ def autogluon_tabular_training_pipeline(
         train_data_file_key: S3 object key of the CSV file (features and target column).
         label_column: Name of the target/label column in the dataset.
         task_type: "binary", "multiclass", or "regression"; drives metrics and model types.
+        model_registry_url: URL of the OpenDataHub Model Registry REST API.
+        oci_image_ref: Full OCI image reference for the modelcar (e.g. "registry.apps.cluster.example.com/namespace/model-name:v1").
+        registered_model_name: Name under which the model will appear in the Model Registry.
+        model_version: Version string for the registered model (e.g. "1.0.0").
+        author: Author name stored in the Model Registry entry.
         top_n: Number of top models to select and refit (default: 3); positive integer.
+        model_format_name: Model serving format for the registry entry (default: "autogluon").
+        model_format_version: Model serving format version for the registry entry (default: "1").
 
     Returns:
         HTML artifact with leaderboard of refitted models ranked by task_type metric (e.g. accuracy, r2).
+        OCI image reference of the registered modelcar.
 
     Raises:
         FileNotFoundError: If the S3 file cannot be found or accessed.
@@ -131,6 +152,11 @@ def autogluon_tabular_training_pipeline(
             train_data_file_key="datasets/housing_prices.csv",
             label_column="price",
             task_type="regression",
+            model_registry_url="https://registry-rest.apps.cluster.example.com",
+            oci_image_ref="registry.apps.cluster.example.com/my-namespace/loan-model:1.0.0",
+            registered_model_name="loan-default-predictor",
+            model_version="1.0.0",
+            author="mlops-team",
             top_n=3,
         )
     """  # noqa: E501
@@ -188,10 +214,25 @@ def autogluon_tabular_training_pipeline(
         )
 
     # Generate leaderboard
-    leaderboard_evaluation(
+    leaderboard_task = leaderboard_evaluation(
         models=dsl.Collected(refit_full_task.outputs["model_artifact"]),
         eval_metric=selection_task.outputs["eval_metric"],
     )
+
+    # Stage 3: Model Registry
+    # Clone the best model for deployment, push as a modelcar, and register it
+    registry_task = autogluon_model_registry(
+        best_model=leaderboard_task.outputs["best_model"],
+        models=dsl.Collected(refit_full_task.outputs["model_artifact"]),
+        model_registry_url=model_registry_url,
+        oci_image_ref=oci_image_ref,
+        registered_model_name=registered_model_name,
+        version=model_version,
+        author=author,
+        model_format_name=model_format_name,
+        model_format_version=model_format_version,
+    )
+
 
 
 if __name__ == "__main__":

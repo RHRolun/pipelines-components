@@ -1,0 +1,19 @@
+---
+name: autogluon_model_registry
+stability: alpha  # New component without proven track record
+dependencies:
+  kubeflow:
+    - name: Pipelines
+      version: '>=2.15.2'
+  external:
+    - name: OpenDataHub Model Registry
+      description: Model Registry REST API endpoint
+    - name: OCI Registry
+      description: OCI-compatible image registry for modelcar storage
+tags:
+  - deployment
+  - automl
+  - autogluon
+  - model-registry
+  - modelcar
+lastVerified: 2026-03-16T00:00:00Z
