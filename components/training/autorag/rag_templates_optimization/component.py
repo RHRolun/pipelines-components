@@ -115,7 +115,7 @@ def rag_templates_optimization(
     def require_non_empty(**fields):
         for name, value in fields.items():
             if not value:
-                raise ValueError(f"{name} must be a non-empty string.")
+                raise TypeError(f"{name} must be a non-empty string.")
 
     require_non_empty(
         chat_model_url=chat_model_url,

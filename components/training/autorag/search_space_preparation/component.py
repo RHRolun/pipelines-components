@@ -106,7 +106,7 @@ def search_space_preparation(
     def require_non_empty(**fields):
         for name, value in fields.items():
             if not value:
-                raise ValueError(f"{name} must be a non-empty string.")
+                raise TypeError(f"{name} must be a non-empty string.")
 
     require_non_empty(
         chat_model_url=chat_model_url,
@@ -121,7 +121,7 @@ def search_space_preparation(
         else:
             for i, m in enumerate(embeddings_models):
                 if not m:
-                    raise ValueError(f"embeddings_models[{i}] must be a non-empty string.")
+                    raise TypeError(f"embeddings_models[{i}] must be a non-empty string.")
 
     if generation_models is not None:
         if not isinstance(generation_models, list):
@@ -129,7 +129,7 @@ def search_space_preparation(
         else:
             for i, m in enumerate(generation_models):
                 if not m:
-                   raise ValueError(f"generation_models[{i}] must be a non-empty string.")
+                   raise TypeError(f"generation_models[{i}] must be a non-empty string.")
 
     if metric not in supported_metrics:
         raise ValueError(f"Metric {metric} is not supported. Supported metrics are {supported_metrics}.")

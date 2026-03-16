@@ -39,7 +39,7 @@ def test_data_loader(test_data_bucket_name: str, test_data_path: str, test_data:
         logger.addHandler(handler)
 
     if not test_data_bucket_name:
-        raise ValueError("test_data_bucket_name must be a non-empty string")
+        raise TypeError("test_data_bucket_name must be a non-empty string")
 
     test_data_without_suffix, test_data_suffix = test_data_path.rsplit(".", 1)
     if not test_data_without_suffix or test_data_suffix != "json":
