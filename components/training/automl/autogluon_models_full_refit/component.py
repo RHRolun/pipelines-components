@@ -119,16 +119,19 @@ def autogluon_models_full_refit(
     from autogluon.tabular import TabularPredictor
 
     # Input validation
-    if not model_name or not isinstance(model_name, str) or not model_name.strip():
-        raise TypeError("model_name must be a non-empty string.")
-    if not predictor_path or not isinstance(predictor_path, str) or not predictor_path.strip():
-        raise TypeError("predictor_path must be a non-empty string.")
-    if not pipeline_name or not isinstance(pipeline_name, str) or not pipeline_name.strip():
-        raise TypeError("pipeline_name must be a non-empty string.")
-    if not run_id or not isinstance(run_id, str) or not run_id.strip():
-        raise TypeError("run_id must be a non-empty string.")
-    if not sample_row or not isinstance(sample_row, str) or not sample_row.strip():
-        raise TypeError("sample_row must be a non-empty string.")
+
+    def require_non_empty(**fields):
+        for name, value in fields.items():
+            if not isinstance(value,  str) or not value.strip():
+                raise TypeError(f"{name} must be a non-empty string.")
+
+    require_non_empty(
+        model_name=model_name,
+        predictor_path=predictor_path,
+        pipeline_name=pipeline_name,
+        run_id=run_id,
+        sample_row=sample_row,
+    )
     if sampling_config is not None and not isinstance(sampling_config, dict):
         raise TypeError("sampling_config must be a dictionary or None.")
     if split_config is not None and not isinstance(split_config, dict):
@@ -259,10 +262,10 @@ def autogluon_models_full_refit(
 
     try:
         sample_row_list = json.loads(sample_row)
-        if not isinstance(sample_row_list, list):
-            raise ValueError("sample_row must be a JSON array (list of row objects).")
     except (json.JSONDecodeError, TypeError) as e:
         raise TypeError("sample_row must be valid JSON (array of row objects).") from e
+    if not isinstance(sample_row_list, list):
+        raise ValueError("sample_row must be a JSON array (list of row objects).")
 
     # remove label column from sample row
     sample_row_formatted = [

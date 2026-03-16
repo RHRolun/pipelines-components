@@ -48,7 +48,7 @@ def leaderboard_evaluation(
     import pandas as pd
 
     # Input validation
-    if not eval_metric or not isinstance(eval_metric, str) or not eval_metric.strip():
+    if not isinstance(eval_metric, str) or not eval_metric.strip():
         raise TypeError("eval_metric must be a non-empty string.")
     if not isinstance(models, list) or len(models) == 0:
         raise TypeError("models must be a non-empty list.")

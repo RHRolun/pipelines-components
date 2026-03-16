@@ -486,7 +486,10 @@ class TestModelsSelectionUnitTests:
         """Test that ValueError is raised for invalid task_type."""
         mock_test_data = mock.MagicMock()
         mock_test_data.path = "/tmp/test_data.csv"
-        with pytest.raises(ValueError, match="Invalid task_type"):
+        with pytest.raises(
+            ValueError,
+            match=r"task_type must be one of .* got 'invalid'\.",
+        ):
             models_selection.python_func(
                 label_column="target",
                 task_type="invalid",
@@ -497,10 +500,10 @@ class TestModelsSelectionUnitTests:
             )
 
     def test_models_selection_rejects_invalid_top_n(self):
-        """Test that ValueError is raised for non-positive top_n."""
+        """Test that TypeError is raised for non-positive top_n."""
         mock_test_data = mock.MagicMock()
         mock_test_data.path = "/tmp/test_data.csv"
-        with pytest.raises(ValueError, match="top_n must be a positive integer"):
+        with pytest.raises(TypeError, match=r"top_n must be an integer in the range \(0, 10.* got 0\."):
             models_selection.python_func(
                 label_column="target",
                 task_type="regression",
@@ -508,6 +511,48 @@ class TestModelsSelectionUnitTests:
                 train_data_path="/tmp/train_data.csv",
                 test_data=mock_test_data,
                 workspace_path="/tmp/model",
+            )
+
+    def test_models_selection_rejects_empty_label_column(self):
+        """Test that TypeError is raised for empty label_column."""
+        mock_test_data = mock.MagicMock()
+        mock_test_data.path = "/tmp/test_data.csv"
+        with pytest.raises(TypeError, match=r"label_column must be a non-empty string\."):
+            models_selection.python_func(
+                label_column="  ",
+                task_type="regression",
+                top_n=2,
+                train_data_path="/tmp/train_data.csv",
+                test_data=mock_test_data,
+                workspace_path="/tmp/model",
+            )
+
+    def test_models_selection_rejects_empty_train_data_path(self):
+        """Test that TypeError is raised for empty train_data_path."""
+        mock_test_data = mock.MagicMock()
+        mock_test_data.path = "/tmp/test_data.csv"
+        with pytest.raises(TypeError, match=r"train_data_path must be a non-empty string\."):
+            models_selection.python_func(
+                label_column="target",
+                task_type="regression",
+                top_n=2,
+                train_data_path="",
+                test_data=mock_test_data,
+                workspace_path="/tmp/model",
+            )
+
+    def test_models_selection_rejects_empty_workspace_path(self):
+        """Test that TypeError is raised for empty workspace_path."""
+        mock_test_data = mock.MagicMock()
+        mock_test_data.path = "/tmp/test_data.csv"
+        with pytest.raises(TypeError, match=r"workspace_path must be a non-empty string\."):
+            models_selection.python_func(
+                label_column="target",
+                task_type="regression",
+                top_n=2,
+                train_data_path="/tmp/train_data.csv",
+                test_data=mock_test_data,
+                workspace_path="   ",
             )
 
     def test_component_imports_correctly(self):

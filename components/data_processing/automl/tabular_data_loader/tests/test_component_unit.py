@@ -150,11 +150,11 @@ class TestAutomlDataLoaderUnitTests:
 
     @mock.patch.dict("os.environ", mocked_env_variables)
     def test_component_stratified_requires_label_column(self, tmp_path):
-        """Test that sampling_method='stratified' without label_column raises ValueError."""
+        """Test that sampling_method='stratified' with empty label_column raises TypeError."""
         sampled_test = _make_test_artifact(tmp_path)
 
         with _mock_boto3_and_pandas() as mock_s3:
-            with pytest.raises(ValueError, match="label_column must be provided when sampling_method='stratified'"):
+            with pytest.raises(TypeError, match=r"label_column must be a non-empty string\."):
                 automl_data_loader.python_func(
                     file_key="data/file.csv",
                     bucket_name="bucket",
@@ -496,7 +496,7 @@ class TestDataLoaderSplitLogic:
         sampled_test = _make_test_artifact(tmp_path)
 
         with _mock_boto3_and_pandas() as mock_s3:
-            with pytest.raises(ValueError, match=r"Invalid task_type"):
+            with pytest.raises(ValueError, match=r"task_type must be one of .* got 'invalid'\."):
                 automl_data_loader.python_func(
                     file_key="data/file.csv",
                     bucket_name="bucket",
@@ -514,7 +514,7 @@ class TestDataLoaderSplitLogic:
         sampled_test = _make_test_artifact(tmp_path)
 
         with _mock_boto3_and_pandas():
-            with pytest.raises(ValueError, match=r"Invalid sampling_method"):
+            with pytest.raises(ValueError, match=r"sampling_method must be one of .* or None.* got 'invalid'\."):
                 automl_data_loader.python_func(
                     file_key="data/file.csv",
                     bucket_name="bucket",
@@ -523,3 +523,152 @@ class TestDataLoaderSplitLogic:
                     sampled_test_dataset=sampled_test,
                     sampling_method="invalid",
                 )
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_empty_bucket_name_raises(self, tmp_path):
+        """Empty bucket_name raises TypeError before any S3 access."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"bucket_name must be a non-empty string\."):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="  ",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_empty_label_column_raises(self, tmp_path):
+        """Empty label_column raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"label_column must be a non-empty string\."):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="",
+                    sampled_test_dataset=sampled_test,
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_split_config_not_dict_raises(self, tmp_path):
+        """split_config that is not a dict raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(
+                TypeError,
+                match=r"split_config must be a dictionary with possible keys test_size, random_state, stratify\.",
+            ):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    split_config="not_a_dict",
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_split_config_invalid_test_size_raises(self, tmp_path):
+        """split_config['test_size'] not in (0,1) raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"split_config\['test_size'\] must be a number in \(0, 1\)"):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    split_config={"test_size": 0},
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_split_config_invalid_random_state_raises(self, tmp_path):
+        """split_config['random_state'] not an integer raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"split_config\['random_state'\] must be an integer"):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    split_config={"random_state": 3.14},
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_split_config_invalid_stratify_raises(self, tmp_path):
+        """split_config['stratify'] not a boolean raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"split_config\['stratify'\] must be a boolean"):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    split_config={"stratify": "yes"},
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_selection_train_size_not_numerical_raises(self, tmp_path):
+        """selection_train_size not numerical raises TypeError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(TypeError, match=r"selection_train_size must be a numerical value"):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    selection_train_size="0.3",
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_selection_train_size_out_of_range_raises(self, tmp_path):
+        """selection_train_size <= 0 or >= 1 raises ValueError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(ValueError, match=r"selection_train_size must be in a range 0 to 1"):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    selection_train_size=1.0,
+                )
+            mock_s3.get_object.assert_not_called()
+
+    @mock.patch.dict("os.environ", mocked_env_variables)
+    def test_stratified_sampling_with_regression_task_raises(self, tmp_path):
+        """Stratified sampling with task_type=regression raises ValueError."""
+        sampled_test = _make_test_artifact(tmp_path)
+        with _mock_boto3_and_pandas() as mock_s3:
+            with pytest.raises(
+                ValueError,
+                match=r"Stratified sampling is only available when task_type is 'binary' or 'multiclass'",
+            ):
+                automl_data_loader.python_func(
+                    file_key="data/file.csv",
+                    bucket_name="bucket",
+                    workspace_path=str(tmp_path),
+                    label_column="target",
+                    sampled_test_dataset=sampled_test,
+                    sampling_method="stratified",
+                    task_type="regression",
+                )
+            mock_s3.get_object.assert_not_called()

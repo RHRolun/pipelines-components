@@ -73,21 +73,26 @@ def automl_data_loader(  # noqa: D417
 
     logger = logging.getLogger(__name__)
 
-    # Input validation
     VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
     VALID_TASK_TYPES = {"binary", "multiclass", "regression"}
     MAX_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB limit in bytes
     PANDAS_CHUNK_SIZE = 10000  # Rows per batch for streaming read
     DEFAULT_RANDOM_STATE = 42
 
-    if not bucket_name or not isinstance(bucket_name, str) or not bucket_name.strip():
-        raise TypeError("bucket_name must be a non-empty string.")
-    if not file_key or not isinstance(file_key, str) or not file_key.strip():
-        raise TypeError("file_key must be a non-empty string.")
-    if not workspace_path or not isinstance(workspace_path, str) or not workspace_path.strip():
-        raise TypeError("workspace_path must be a non-empty string.")
-    if not label_column or not isinstance(label_column, str) or not label_column.strip():
-        raise TypeError("label_column must be a non-empty string.")
+    # Input validation
+
+    def require_non_empty(**fields):
+        for name, value in fields.items():
+            if not isinstance(value,  str) or not value.strip():
+                raise TypeError(f"{name} must be a non-empty string.")
+
+    require_non_empty(
+        bucket_name=bucket_name,
+        file_key=file_key,
+        workspace_path=workspace_path,
+        label_column=label_column,
+    )
+
     if task_type not in VALID_TASK_TYPES:
         raise ValueError(f"task_type must be one of {VALID_TASK_TYPES}; got {task_type!r}.")
     if split_config is not None and not isinstance(split_config, dict):
