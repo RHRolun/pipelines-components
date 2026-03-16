@@ -60,9 +60,9 @@ def timeseries_models_selection(
     logger = logging.getLogger(__name__)
 
     # Set constants
-    DEFAULT_PRESETS = "medium_quality"
+    DEFAULT_PRESETS = "fast_training"  # TODO: for production - change to medium_quality
     DEFAULT_EVAL_METRIC = "MASE"
-    DEFAULT_TIME_LIMIT = 60 * 60  # 60 * 60 = 3600 seconds = 1 hour
+    DEFAULT_TIME_LIMIT = 60  # seconds #TODO: for production - increase the value
 
     # Load training data
     logger.info("Loading training data from %s", train_data_path)
@@ -134,7 +134,7 @@ def timeseries_models_selection(
     # Select top N models from leaderboard
     top_models = leaderboard.head(top_n)["model"].values.tolist()
     logger.info(f"Top {top_n} models selected from leaderboard: {top_models}")
-    logger.info(f"Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0]["score_test"]}")
+    logger.info(f"Best model: {top_models[0]} with {eval_metric}={leaderboard.iloc[0]['score_test']}")
 
     # Create model config
     model_config = {
