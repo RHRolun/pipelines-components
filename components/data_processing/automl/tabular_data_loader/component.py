@@ -80,18 +80,14 @@ def automl_data_loader(  # noqa: D417
     DEFAULT_RANDOM_STATE = 42
 
     # Input validation
-
-    def require_non_empty(**fields):
-        for name, value in fields.items():
-            if not isinstance(value,  str) or not value.strip():
-                raise TypeError(f"{name} must be a non-empty string.")
-
-    require_non_empty(
-        bucket_name=bucket_name,
-        file_key=file_key,
-        workspace_path=workspace_path,
-        label_column=label_column,
-    )
+    for param, value in (
+        ("bucket_name", bucket_name),
+        ("file_key", file_key),
+        ("workspace_path", workspace_path),
+        ("label_column", label_column),
+    ):
+        if not isinstance(value, str) or not value.strip():
+            raise TypeError(f"{param} must be a non-empty string.")
 
     if task_type not in VALID_TASK_TYPES:
         raise ValueError(f"task_type must be one of {VALID_TASK_TYPES}; got {task_type!r}.")

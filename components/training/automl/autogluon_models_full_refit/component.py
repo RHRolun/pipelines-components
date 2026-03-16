@@ -119,19 +119,16 @@ def autogluon_models_full_refit(
     from autogluon.tabular import TabularPredictor
 
     # Input validation
+    for param, value in (
+        ("model_name", model_name),
+        ("predictor_path", predictor_path),
+        ("pipeline_name", pipeline_name),
+        ("run_id", run_id),
+        ("sample_row", sample_row),
+    ):
+        if not isinstance(value, str) or not value.strip():
+            raise TypeError(f"{param} must be a non-empty string.")
 
-    def require_non_empty(**fields):
-        for name, value in fields.items():
-            if not isinstance(value,  str) or not value.strip():
-                raise TypeError(f"{name} must be a non-empty string.")
-
-    require_non_empty(
-        model_name=model_name,
-        predictor_path=predictor_path,
-        pipeline_name=pipeline_name,
-        run_id=run_id,
-        sample_row=sample_row,
-    )
     if sampling_config is not None and not isinstance(sampling_config, dict):
         raise TypeError("sampling_config must be a dictionary or None.")
     if split_config is not None and not isinstance(split_config, dict):
