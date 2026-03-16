@@ -36,14 +36,11 @@ def autogluon_tabular_training_pipeline(
     train_data_file_key: str,
     label_column: str,
     task_type: str,
-    model_registry_url: str,
-    oci_image_ref: str,
+    username: str,
+    cluster_domain: str,
     registered_model_name: str,
     model_version: str,
-    author: str,
     top_n: int = 3,
-    model_format_name: str = "autogluon",
-    model_format_version: str = "1",
 ):
     """AutoGluon Tabular Training Pipeline.
 
@@ -121,14 +118,11 @@ def autogluon_tabular_training_pipeline(
         train_data_file_key: S3 object key of the CSV file (features and target column).
         label_column: Name of the target/label column in the dataset.
         task_type: "binary", "multiclass", or "regression"; drives metrics and model types.
-        model_registry_url: URL of the OpenDataHub Model Registry REST API.
-        oci_image_ref: Full OCI image reference for the modelcar (e.g. "registry.apps.cluster.example.com/namespace/model-name:v1").
+        username: OpenShift username; used to construct the model registry URL, OCI reference, and as the registry author.
+        cluster_domain: OpenShift cluster domain (e.g. "apps.cluster.example.com"); used to construct service URLs.
         registered_model_name: Name under which the model will appear in the Model Registry.
         model_version: Version string for the registered model (e.g. "1.0.0").
-        author: Author name stored in the Model Registry entry.
         top_n: Number of top models to select and refit (default: 3); positive integer.
-        model_format_name: Model serving format for the registry entry (default: "autogluon").
-        model_format_version: Model serving format version for the registry entry (default: "1").
 
     Returns:
         HTML artifact with leaderboard of refitted models ranked by task_type metric (e.g. accuracy, r2).
@@ -152,11 +146,10 @@ def autogluon_tabular_training_pipeline(
             train_data_file_key="datasets/housing_prices.csv",
             label_column="price",
             task_type="regression",
-            model_registry_url="https://registry-rest.apps.cluster.example.com",
-            oci_image_ref="registry.apps.cluster.example.com/my-namespace/loan-model:1.0.0",
+            username="jdoe",
+            cluster_domain="apps.cluster.example.com",
             registered_model_name="loan-default-predictor",
             model_version="1.0.0",
-            author="mlops-team",
             top_n=3,
         )
     """  # noqa: E501
@@ -221,16 +214,13 @@ def autogluon_tabular_training_pipeline(
 
     # Stage 3: Model Registry
     # Clone the best model for deployment, push as a modelcar, and register it
-    registry_task = autogluon_model_registry(
+    autogluon_model_registry(
         best_model=leaderboard_task.outputs["best_model"],
         models=dsl.Collected(refit_full_task.outputs["model_artifact"]),
-        model_registry_url=model_registry_url,
-        oci_image_ref=oci_image_ref,
-        registered_model_name=registered_model_name,
+        username=username,
+        cluster_domain=cluster_domain,
         version=model_version,
-        author=author,
-        model_format_name=model_format_name,
-        model_format_version=model_format_version,
+        registered_model_name=registered_model_name,
     )
 
 

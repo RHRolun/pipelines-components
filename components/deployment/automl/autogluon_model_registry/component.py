@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple
 
 from kfp import dsl
 
@@ -18,15 +18,11 @@ from kfp import dsl
 def autogluon_model_registry(
     best_model: str,
     models: List[dsl.Model],
-    model_registry_url: str,
-    oci_image_ref: str,
-    registered_model_name: str,
+    username: str,
+    cluster_domain: str,
     version: str,
-    author: str,
+    registered_model_name: str,
     deployment_artifact: dsl.Output[dsl.Model],
-    model_format_name: str = "autogluon",
-    model_format_version: str = "1",
-    description: Optional[str] = None,
 ) -> NamedTuple("outputs", model_uri=str):
     """Clone the best AutoGluon model for deployment, push it as a modelcar, and register it.
 
@@ -36,20 +32,15 @@ def autogluon_model_registry(
 
     OCI registry authentication is handled via the REGISTRY_AUTH_FILE environment variable,
     which should point to a Docker-format auth JSON file (e.g. produced by `oc registry login`).
-    Inject this via a Kubernetes secret mapped to the REGISTRY_AUTH_FILE env var.
 
     Args:
         best_model: Display name of the best model (e.g. "LightGBM_BAG_L1_FULL"), as returned by leaderboard_evaluation.
         models: List of Model artifacts from the parallel refit step.
-        model_registry_url: URL of the OpenDataHub Model Registry REST API.
-        oci_image_ref: Full OCI image reference for the modelcar (e.g. "registry.apps.cluster.example.com/namespace/model-name:v1").
+        username: OpenShift username; used to construct the model registry URL, OCI reference, and as the registry author.
+        cluster_domain: OpenShift cluster domain (e.g. "apps.cluster.example.com"); used to construct service URLs.
+        version: Version string for the registered model (e.g. "1.0.0").
         registered_model_name: Name under which the model will be registered in the Model Registry.
-        version: Version string for the model (e.g. "1.0.0").
-        author: Author name stored in the Model Registry entry.
         deployment_artifact: Output artifact containing the deployment-cloned predictor files.
-        model_format_name: Model serving format name stored in the registry (default: "autogluon").
-        model_format_version: Model serving format version stored in the registry (default: "1").
-        description: Optional description for the registered model. If None, a default is generated.
 
     Returns:
         model_uri: OCI image reference of the pushed modelcar.
@@ -66,11 +57,10 @@ def autogluon_model_registry(
             autogluon_model_registry(
                 best_model=best_model,
                 models=models,
-                model_registry_url="https://registry-rest.apps.cluster.example.com",
-                oci_image_ref="registry.apps.cluster.example.com/namespace/loan-model:1.0.0",
-                registered_model_name="loan-default-predictor",
+                username="jdoe",
+                cluster_domain="apps.cluster.example.com",
                 version="1.0.0",
-                author="mlops-team",
+                registered_model_name="loan-default-predictor",
             )
     """  # noqa: E501
     from pathlib import Path
@@ -78,6 +68,9 @@ def autogluon_model_registry(
     from autogluon.tabular import TabularPredictor
     from model_registry import ModelRegistry
     from model_registry.utils import OCIParams
+
+    model_registry_url = f"https://{username}-registry-rest.{cluster_domain}"
+    oci_image_ref = f"default-route-openshift-image-registry.{cluster_domain}/{username}-canopy/{registered_model_name}:{version}"  # noqa: E501
 
     # --- Find the best model artifact ---
     best_model_artifact = next(
@@ -102,22 +95,17 @@ def autogluon_model_registry(
     label_column = context.get("label_column", "unknown")
     metrics = context.get("metrics", {}).get("test_data", {})
 
-    model_description = description or (
-        f"AutoGluon tabular model '{best_model}' trained for {task_type} on column '{label_column}'. "
-        f"Cloned for deployment using AutoGluon clone_for_deployment()."
-    )
-
     # --- Push modelcar and register ---
-    mr = ModelRegistry(model_registry_url, author=author)
+    mr = ModelRegistry(model_registry_url, author=username)
     mr.upload_artifact_and_register_model(
         name=registered_model_name,
         model_files_path=str(deploy_path),
-        author=author,
+        author=username,
         version=version,
-        description=model_description,
+        description=f"AutoGluon tabular model '{best_model}' trained for {task_type} on column '{label_column}'.",
         upload_params=OCIParams(base_image="busybox", oci_ref=oci_image_ref),
-        model_format_name=model_format_name,
-        model_format_version=model_format_version,
+        model_format_name="autogluon",
+        model_format_version="1",
         metadata={
             "source_model": best_model,
             "task_type": task_type,
