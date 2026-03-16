@@ -119,35 +119,30 @@ def autogluon_models_full_refit(
     from autogluon.tabular import TabularPredictor
 
     # Input validation
-    errors = []
-
     if not model_name or not isinstance(model_name, str) or not model_name.strip():
-        errors.append("model_name must be a non-empty string.")
+        raise TypeError("model_name must be a non-empty string.")
     if not predictor_path or not isinstance(predictor_path, str) or not predictor_path.strip():
-        errors.append("predictor_path must be a non-empty string.")
+        raise TypeError("predictor_path must be a non-empty string.")
     if not pipeline_name or not isinstance(pipeline_name, str) or not pipeline_name.strip():
-        errors.append("pipeline_name must be a non-empty string.")
+        raise TypeError("pipeline_name must be a non-empty string.")
     if not run_id or not isinstance(run_id, str) or not run_id.strip():
-        errors.append("run_id must be a non-empty string.")
+        raise TypeError("run_id must be a non-empty string.")
     if not sample_row or not isinstance(sample_row, str) or not sample_row.strip():
-        errors.append("sample_row must be a non-empty string.")
+        raise TypeError("sample_row must be a non-empty string.")
     if sampling_config is not None and not isinstance(sampling_config, dict):
-        errors.append("sampling_config must be a dictionary or None.")
+        raise TypeError("sampling_config must be a dictionary or None.")
     if split_config is not None and not isinstance(split_config, dict):
-        errors.append("split_config must be a dictionary or None.")
+        raise TypeError("split_config must be a dictionary or None.")
     if model_config is not None and not isinstance(model_config, dict):
-        errors.append("model_config must be a dictionary or None.")
+        raise TypeError("model_config must be a dictionary or None.")
 
-    if not errors and sample_row:
+    if sample_row:
         try:
             parsed = json.loads(sample_row)
             if not isinstance(parsed, list):
-                errors.append("sample_row must be a JSON array (list of row objects).")
+                raise ValueError("sample_row must be a JSON array (list of row objects).")
         except (json.JSONDecodeError, TypeError):
-            errors.append("sample_row must be valid JSON (array of row objects).")
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
+            raise TypeError("sample_row must be valid JSON (array of row objects).")
 
     sampling_config = sampling_config or {}
     split_config = split_config or {}

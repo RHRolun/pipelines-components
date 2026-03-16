@@ -76,42 +76,38 @@ def automl_data_loader(  # noqa: D417
     # Input validation
     VALID_SAMPLING_METHODS = {"first_n_rows", "stratified", "random"}
     VALID_TASK_TYPES = {"binary", "multiclass", "regression"}
-    errors = []
 
     if not bucket_name or not isinstance(bucket_name, str) or not bucket_name.strip():
-        errors.append("bucket_name must be a non-empty string.")
+        raise TypeError("bucket_name must be a non-empty string.")
     if not file_key or not isinstance(file_key, str) or not file_key.strip():
-        errors.append("file_key must be a non-empty string.")
+        raise TypeError("file_key must be a non-empty string.")
     if not workspace_path or not isinstance(workspace_path, str) or not workspace_path.strip():
-        errors.append("workspace_path must be a non-empty string.")
+        raise TypeError("workspace_path must be a non-empty string.")
     if not label_column or not isinstance(label_column, str) or not label_column.strip():
-        errors.append("label_column must be a non-empty string.")
+        raise TypeError("label_column must be a non-empty string.")
     if task_type not in VALID_TASK_TYPES:
-        errors.append(f"task_type must be one of {VALID_TASK_TYPES}; got {task_type!r}.")
+        raise ValueError(f"task_type must be one of {VALID_TASK_TYPES}; got {task_type!r}.")
     if sampling_method is not None and sampling_method not in VALID_SAMPLING_METHODS:
-        errors.append(f"sampling_method must be one of {VALID_SAMPLING_METHODS} or None; got {sampling_method!r}.")
+        raise ValueError(f"sampling_method must be one of {VALID_SAMPLING_METHODS} or None; got {sampling_method!r}.")
     if sampling_method == "stratified" and task_type not in ("binary", "multiclass"):
-        errors.append(
+        raise ValueError(
             "Stratified sampling is only available when task_type is "
             "'binary' or 'multiclass' (classification tasks)."
         )
     if split_config is not None and not isinstance(split_config, dict):
-        errors.append("split_config must be a dictionary or None.")
+        raise TypeError("split_config must be a dictionary or None.")
     if isinstance(split_config, dict):
         test_size = split_config.get("test_size")
         if test_size is not None and (not isinstance(test_size, (int, float)) or test_size <= 0 or test_size >= 1):
-            errors.append("split_config['test_size'] must be a number in (0, 1) when provided.")
+            raise TypeError("split_config['test_size'] must be a number in (0, 1) when provided.")
         random_state = split_config.get("random_state")
         if random_state is not None and (not isinstance(random_state, int)):
-            errors.append("split_config['random_state'] must be an integer when provided.")
+            raise TypeError("split_config['random_state'] must be an integer when provided.")
         stratify = split_config.get("stratify")
         if stratify is not None and not isinstance(stratify, bool):
-            errors.append("split_config['stratify'] must be a boolean when provided.")
+            raise TypeError("split_config['stratify'] must be a boolean when provided.")
     if not isinstance(selection_train_size, (int, float)) or selection_train_size <= 0 or selection_train_size >= 1:
-        errors.append("selection_train_size must be a number in (0, 1).")
-
-    if errors:
-        raise ValueError("Invalid input:\n" + "\n".join(errors))
+        raise TypeError("selection_train_size must be a number in (0, 1).")
 
     MAX_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB limit in bytes
     PANDAS_CHUNK_SIZE = 10000  # Rows per batch for streaming read
