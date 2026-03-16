@@ -12,13 +12,13 @@ class TestTextExtractionUnitTests:
         assert hasattr(text_extraction, "python_func")
 
     def test_component_with_default_parameters(self):
-        """Test component with valid input parameters."""
-        # TODO: Implement unit tests for your component
+        """Test component has expected interface (required args)."""
+        import inspect
 
-        # Example test structure:
-        result = text_extraction.python_func(input_param="test_value")
-        assert isinstance(result, str)
-        assert "test_value" in result
+        sig = inspect.signature(text_extraction.python_func)
+        params = list(sig.parameters)
+        assert "documents_descriptor" in params
+        assert "extracted_text" in params
 
     # TODO: Add more comprehensive unit tests
     # @mock.patch("external_library.some_function")
