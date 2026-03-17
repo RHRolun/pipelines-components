@@ -87,10 +87,15 @@ def autogluon_model_registry(
     predictor.clone_for_deployment(path=str(deploy_path))
 
     # --- Push modelcar to OCI registry ---
+    # Use the service account token mounted by Kubernetes for authentication
+    sa_token = Path("/var/run/secrets/kubernetes.io/serviceaccount/token").read_text()
+
     save_to_oci_registry(
         base_image="busybox",
         oci_ref=oci_image_ref,
         model_files_path=str(deploy_path),
+        oci_username="serviceaccount",
+        oci_password=sa_token,
     )
 
     deployment_artifact.metadata["display_name"] = registered_model_name
