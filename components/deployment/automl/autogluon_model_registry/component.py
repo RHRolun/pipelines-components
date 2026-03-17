@@ -36,7 +36,7 @@ def autogluon_model_registry(
     Args:
         best_model: Display name of the best model (e.g. "LightGBM_BAG_L1_FULL"), as returned by leaderboard_evaluation.
         models: List of Model artifacts from the parallel refit step.
-        username: OpenShift username; used to construct the model registry URL, OCI reference, and as the registry author.
+        username: OpenShift namespace/username; used to construct the OCI image reference.
         cluster_domain: OpenShift cluster domain (e.g. "apps.cluster.example.com"); used to construct service URLs.
         version: Version string for the registered model (e.g. "1.0.0").
         registered_model_name: Name under which the model will be registered in the Model Registry.
@@ -68,7 +68,7 @@ def autogluon_model_registry(
     from autogluon.tabular import TabularPredictor
     from model_registry.utils import save_to_oci_registry
 
-    oci_image_ref = f"default-route-openshift-image-registry.{cluster_domain}/{username}-canopy/{registered_model_name}:{version}"  # noqa: E501
+    oci_image_ref = f"default-route-openshift-image-registry.{cluster_domain}/{username}/{registered_model_name}:{version}"  # noqa: E501
 
     # --- Find the best model artifact ---
     best_model_artifact = next(
