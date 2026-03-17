@@ -12,7 +12,7 @@ from kfp import dsl
         "lightgbm==4.6.0",
         "torch==2.9.1",
         "xgboost==3.1.3",
-        "model-registry",
+        "model-registry[olot]",
     ],
 )
 def autogluon_model_registry(
@@ -24,11 +24,11 @@ def autogluon_model_registry(
     registered_model_name: str,
     deployment_artifact: dsl.Output[dsl.Model],
 ) -> NamedTuple("outputs", model_uri=str):
-    """Clone the best AutoGluon model for deployment, push it as a modelcar, and register it.
+    """Clone the best AutoGluon model for deployment and push it as a modelcar to an OCI registry.
 
     Finds the best model artifact by name, clones it for deployment using AutoGluon's
     clone_for_deployment() (producing a minimal inference-only predictor), then pushes
-    it as an OCI modelcar and registers it in the OpenDataHub Model Registry.
+    it as an OCI modelcar using save_to_oci_registry.
 
     OCI registry authentication is handled via the REGISTRY_AUTH_FILE environment variable,
     which should point to a Docker-format auth JSON file (e.g. produced by `oc registry login`).
@@ -66,10 +66,8 @@ def autogluon_model_registry(
     from pathlib import Path
 
     from autogluon.tabular import TabularPredictor
-    from model_registry import ModelRegistry
-    from model_registry.utils import OCIParams
+    from model_registry.utils import save_to_oci_registry
 
-    model_registry_url = f"https://{username}-registry-rest.{cluster_domain}"
     oci_image_ref = f"default-route-openshift-image-registry.{cluster_domain}/{username}-canopy/{registered_model_name}:{version}"  # noqa: E501
 
     # --- Find the best model artifact ---
@@ -88,29 +86,11 @@ def autogluon_model_registry(
     deploy_path = Path("deployment_predictor")
     predictor.clone_for_deployment(path=str(deploy_path))
 
-    # --- Build metadata from artifact context ---
-    context = best_model_artifact.metadata.get("context", {})
-    task_type = context.get("task_type", "unknown")
-    label_column = context.get("label_column", "unknown")
-    metrics = context.get("metrics", {}).get("test_data", {})
-
-    # --- Push modelcar and register ---
-    mr = ModelRegistry(model_registry_url, author=username)
-    mr.upload_artifact_and_register_model(
-        name=registered_model_name,
+    # --- Push modelcar to OCI registry ---
+    save_to_oci_registry(
+        base_image="busybox",
+        oci_ref=oci_image_ref,
         model_files_path=str(deploy_path),
-        author=username,
-        version=version,
-        description=f"AutoGluon tabular model '{best_model}' trained for {task_type} on column '{label_column}'.",
-        upload_params=OCIParams(base_image="busybox", oci_ref=oci_image_ref),
-        model_format_name="autogluon",
-        model_format_version="1",
-        metadata={
-            "source_model": best_model,
-            "task_type": task_type,
-            "label_column": label_column,
-            **{f"metric_{k}": str(v) for k, v in metrics.items()},
-        },
     )
 
     deployment_artifact.metadata["display_name"] = registered_model_name
