@@ -85,7 +85,7 @@ def autogluon_model_registry(
     predictor_path = Path(best_model_artifact.path) / best_model / "predictor"
     predictor = TabularPredictor.load(str(predictor_path))
 
-    deploy_path = Path(deployment_artifact.path) / "deployment_predictor"
+    deploy_path = Path("deployment_predictor")
     predictor.clone_for_deployment(path=str(deploy_path))
 
     # --- Build metadata from artifact context ---
